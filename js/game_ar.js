@@ -1,5 +1,5 @@
 // =============================================================================
-// AR SAFARI: MISSÃO ESPACIAL (REALIDADE AUMENTADA + GIROSCÓPIO)
+// AR SAFARI V2: MISSÃO RESGATE (TOY STORY ROVER EDITION)
 // =============================================================================
 
 (function() {
@@ -9,43 +9,27 @@
     let particles = [];
 
     const Game = {
-        state: 'START', // START, PLAY, GAMEOVER
+        state: 'START', // START, CALIBRATE, PLAY
         score: 0,
         
         // Dados do Giroscópio
         orientation: { alpha: 0, beta: 0, gamma: 0 },
-        permissionGranted: false,
-
+        baseAlpha: 0, // A direção "frente" do caminhãozinho
+        
         init: function(faseData) {
             this.state = 'START';
             this.score = 0;
             aliens = [];
             particles = [];
             
-            // Cria 10 alienígenas espalhados em 360 graus
-            for(let i=0; i<10; i++) {
-                this.spawnAlien();
-            }
-
-            window.System.msg("INICIAR SCANNER");
+            window.System.msg("INICIANDO SISTEMAS DO ROVER");
             this.setupInput();
         },
 
-        spawnAlien: function() {
-            aliens.push({
-                // Posição virtual em graus (0 a 360 para os lados, -45 a 45 para cima/baixo)
-                alpha: Math.random() * 360, 
-                beta: (Math.random() * 60) - 30, 
-                type: Math.random() > 0.5 ? '👾' : '🛸',
-                scanProgress: 0,
-                captured: false
-            });
-        },
-
         setupInput: function() {
-            // No clique inicial, pedimos permissão para o Giroscópio (obrigatório em iPhones)
             window.System.canvas.onclick = async () => {
                 if (this.state === 'START') {
+                    // Pede permissão do sensor (obrigatório em iOS, ignorado no Android)
                     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                         try {
                             const permission = await DeviceOrientationEvent.requestPermission();
@@ -53,183 +37,275 @@
                                 this.startSensors();
                             }
                         } catch (error) {
-                            console.error("Erro ao pedir sensor", error);
+                            console.error("Erro no sensor", error);
                         }
                     } else {
-                        // Android e outros navegadores que não pedem permissão explícita
                         this.startSensors();
                     }
+                    this.state = 'CALIBRATE';
+                    window.Sfx.click();
+                } else if (this.state === 'CALIBRATE') {
+                    // Define a direção atual do celular como o "Norte" (Frente do caminhão)
+                    this.baseAlpha = this.orientation.alpha;
+                    
+                    // Cria os ETs espalhados em relação à frente do caminhão (-120 graus a +120 graus)
+                    for(let i=0; i<8; i++) {
+                        this.spawnAlien();
+                    }
+                    
                     this.state = 'PLAY';
-                    window.Sfx.play(800, 'square', 0.5, 0.1);
+                    window.Sfx.play(400, 'square', 0.5, 0.2); // Som de nave ligando
                 }
             };
         },
 
         startSensors: function() {
-            this.permissionGranted = true;
             window.addEventListener('deviceorientation', (event) => {
-                // alpha = rotação Z (bússola), beta = inclinação frente/trás
                 this.orientation.alpha = event.alpha || 0;
                 this.orientation.beta = event.beta || 0;
             });
         },
 
+        spawnAlien: function() {
+            // Cria ETs apenas num arco na frente e nos lados do caminhão, não muito atrás
+            let angleOffset = (Math.random() * 240) - 120; // -120 a +120 graus
+            let targetAlpha = this.baseAlpha + angleOffset;
+            
+            // Corrige se passar de 360
+            if (targetAlpha >= 360) targetAlpha -= 360;
+            if (targetAlpha < 0) targetAlpha += 360;
+
+            aliens.push({
+                alpha: targetAlpha, 
+                beta: (Math.random() * 40) - 20, // Altura virtual
+                type: Math.random() > 0.5 ? '👽' : '👾',
+                scanProgress: 0,
+                captured: false,
+                floatOffset: Math.random() * Math.PI * 2 // Para eles flutuarem
+            });
+        },
+
+        // Função mágica para calcular a menor distância angular (para o ET não dar a volta no mundo)
+        getShortestAngle: function(target, current) {
+            let diff = target - current;
+            while (diff <= -180) diff += 360;
+            while (diff > 180) diff -= 360;
+            return diff;
+        },
+
         update: function(ctx, w, h, pose) {
-            // 1. DESENHA A CÂMERA DE FUNDO
+            // 1. DESENHA A CÂMERA DE FUNDO (REALIDADE AUMENTADA)
             if (window.System.video && window.System.video.readyState === 4) {
-                // Desenhamos o vídeo preenchendo o canvas para dar o efeito de AR
-                // Como removemos o espelhamento da câmera traseira no core.js, a imagem fica certa!
                 const videoRatio = window.System.video.videoWidth / window.System.video.videoHeight;
                 const canvasRatio = w / h;
-                let drawWidth = w, drawHeight = h, drawX = 0, drawY = 0;
+                let drawW = w, drawH = h, drawX = 0, drawY = 0;
 
-                // Garante que o vídeo cubra toda a tela sem distorcer (efeito object-fit: cover)
                 if (videoRatio > canvasRatio) {
-                     drawWidth = h * videoRatio;
-                     drawX = (w - drawWidth) / 2;
+                     drawW = h * videoRatio; drawX = (w - drawW) / 2;
                 } else {
-                     drawHeight = w / videoRatio;
-                     drawY = (h - drawHeight) / 2;
+                     drawH = w / videoRatio; drawY = (h - drawH) / 2;
                 }
-                ctx.drawImage(window.System.video, drawX, drawY, drawWidth, drawHeight);
+                ctx.drawImage(window.System.video, drawX, drawY, drawW, drawH);
             } else {
-                ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
             }
 
+            // CONTROLE DE ESTADOS
             if (this.state === 'START') {
-                this.drawStartScreen(ctx, w, h);
+                this.drawOverlay(ctx, w, h, "TELA DE COMANDO INATIVA", "Toque para ligar os sensores");
+                return this.score;
+            }
+
+            if (this.state === 'CALIBRATE') {
+                this.drawOverlay(ctx, w, h, "CALIBRAÇÃO DO ROVER", "Aponte o caminhão para a FRENTE e toque na tela");
                 return this.score;
             }
 
             if (this.state === 'PLAY') {
                 this.playMode(ctx, w, h);
-                return this.score;
             }
 
             return this.score;
         },
 
+        drawOverlay: function(ctx, w, h, title, sub) {
+            ctx.fillStyle = "rgba(0, 20, 40, 0.8)";
+            ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = "#0ff";
+            ctx.textAlign = "center";
+            ctx.font = "bold clamp(20px, 5vw, 40px) 'Russo One'";
+            ctx.fillText(title, w/2, h/2 - 20);
+            ctx.fillStyle = "#fff";
+            ctx.font = "clamp(12px, 3vw, 20px) Arial";
+            ctx.fillText(sub, w/2, h/2 + 30);
+        },
+
         playMode: function(ctx, w, h) {
             const cx = w / 2;
             const cy = h / 2;
-            let scanningSomething = false;
+            let targetLocked = false; // Tem algo na mira?
 
-            // 2. LÓGICA DE REALIDADE AUMENTADA (Posicionamento)
+            // 2. LÓGICA DE DETECÇÃO E CAPTURA
             aliens.forEach(alien => {
                 if (alien.captured) return;
 
-                // Diferença de ângulo (ajustado para o menor caminho no círculo de 360 graus)
-                let diffAlpha = alien.alpha - this.orientation.alpha;
-                if (diffAlpha > 180) diffAlpha -= 360;
-                if (diffAlpha < -180) diffAlpha += 360;
-
+                // Calcula onde o ET está em relação para onde o celular aponta
+                let diffAlpha = this.getShortestAngle(alien.alpha, this.orientation.alpha);
                 let diffBeta = alien.beta - this.orientation.beta;
 
-                // Transforma a diferença de graus em pixels na tela (Campo de Visão)
-                const screenX = cx + (diffAlpha * 15);
-                const screenY = cy + (diffBeta * 15);
+                // Transforma o grau em Posição na Tela (Velocidade de movimento da câmera)
+                const screenX = cx + (diffAlpha * 18); // Multiplicador de sensibilidade
+                
+                // Animação do ET flutuando suavemente
+                alien.floatOffset += 0.05;
+                const floatY = Math.sin(alien.floatOffset) * 20;
+                const screenY = cy + (diffBeta * 18) + floatY;
 
-                // Desenha o Alienígena se estiver dentro ou perto da tela
-                if (screenX > -100 && screenX < w + 100 && screenY > -100 && screenY < h + 100) {
+                // Só desenha se estiver perto de aparecer na tela
+                if (screenX > -150 && screenX < w + 150) {
                     
-                    // Alvo ao redor do alien
-                    ctx.fillStyle = "rgba(0, 255, 0, 0.2)";
-                    ctx.beginPath(); ctx.arc(screenX, screenY, 40, 0, Math.PI*2); ctx.fill();
+                    // Desenha o Brilho do ET
+                    const gradient = ctx.createRadialGradient(screenX, screenY, 10, screenX, screenY, 60);
+                    gradient.addColorStop(0, "rgba(50, 255, 50, 0.5)");
+                    gradient.addColorStop(1, "rgba(50, 255, 50, 0)");
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath(); ctx.arc(screenX, screenY, 60, 0, Math.PI*2); ctx.fill();
                     
-                    ctx.font = "50px Arial"; ctx.textAlign = "center";
-                    ctx.fillText(alien.type, screenX, screenY + 15);
+                    // Desenha o ET
+                    ctx.font = "60px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                    ctx.fillText(alien.type, screenX, screenY);
 
-                    // 3. LÓGICA DE CAPTURA (O SCANNER HUD)
+                    // --- SISTEMA DE MIRA FACILITADA (TRAVA DE MIRA) ---
+                    // Se o ET estiver num raio GIGANTE do centro (120 pixels)
                     const distToCenter = Math.hypot(screenX - cx, screenY - cy);
                     
-                    if (distToCenter < 60) { // Raio da mira central
-                        scanningSomething = true;
-                        alien.scanProgress += 2; // Enche a barra
+                    if (distToCenter < 120) {
+                        targetLocked = true;
+                        alien.scanProgress += 2.5; // Enche rápido!
                         
-                        // Barra de progresso do alien
-                        ctx.fillStyle = "#f00"; ctx.fillRect(screenX - 30, screenY + 30, 60, 10);
-                        ctx.fillStyle = "#0f0"; ctx.fillRect(screenX - 30, screenY + 30, (alien.scanProgress/100)*60, 10);
+                        // Desenha a mira focada nele! (Tractor Beam)
+                        ctx.strokeStyle = "#f00"; ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        ctx.arc(screenX, screenY, 80 - (alien.scanProgress/2), 0, Math.PI*2);
+                        ctx.stroke();
 
-                        if (alien.scanProgress % 10 === 0) window.Sfx.hover();
+                        // Linha puxando para o centro da tela
+                        ctx.strokeStyle = "rgba(255, 0, 0, 0.5)"; ctx.lineWidth = 2;
+                        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(screenX, screenY); ctx.stroke();
 
+                        if (alien.scanProgress % 5 === 0) window.Sfx.hover(); // Bip de travamento
+
+                        // CAPTUROU!
                         if (alien.scanProgress >= 100) {
                             alien.captured = true;
-                            this.score += 100;
+                            this.score += 150;
                             window.Sfx.coin();
-                            window.Gfx.shakeScreen(10);
+                            window.Gfx.shakeScreen(15);
                             this.spawnParticles(screenX, screenY);
-                            window.System.msg("ESPÉCIME CAPTURADO!");
+                            window.System.msg("ALIENÍGENA RESGATADO!");
                         }
                     } else {
-                        alien.scanProgress = Math.max(0, alien.scanProgress - 1);
+                        // Se sair da mira, perde o progresso devagarinho (perdoa a tremedeira do carrinho)
+                        alien.scanProgress = Math.max(0, alien.scanProgress - 0.5);
                     }
                 }
             });
 
-            // 4. DESENHA O HUD VIRTUAL (Visão de Robô)
-            this.drawHUD(ctx, w, h, scanningSomething);
+            // 3. DESENHA O PAINEL DA NAVE (COCKPIT)
+            this.drawCockpit(ctx, w, h, targetLocked);
             this.updateParticles(ctx);
 
-            // Verifica Vitória
+            // Verifica se ganhou
             const activeAliens = aliens.filter(a => !a.captured);
             if (activeAliens.length === 0) {
-                window.System.msg("ZONA LIMPA!");
+                window.System.msg("MISSÃO COMPLETA!");
                 setTimeout(() => window.System.gameOver(this.score, true, 5), 2000);
             }
         },
 
-        drawHUD: function(ctx, w, h, isScanning) {
+        drawCockpit: function(ctx, w, h, isLocked) {
             const cx = w / 2;
             const cy = h / 2;
 
-            // Filtro estilo visão noturna / robô
-            ctx.fillStyle = "rgba(0, 50, 0, 0.15)";
+            // Borda do parabrisa da nave
+            ctx.strokeStyle = "#2c3e50"; ctx.lineWidth = 15;
+            ctx.strokeRect(0, 0, w, h);
+            
+            // Vidro com reflexo azulado suave
+            ctx.fillStyle = "rgba(0, 150, 255, 0.05)";
             ctx.fillRect(0, 0, w, h);
 
-            // Mira Central
-            ctx.strokeStyle = isScanning ? "#0f0" : "rgba(0, 255, 255, 0.6)";
+            // MIRA CENTRAL (Gigante e perdoadora)
+            ctx.strokeStyle = isLocked ? "#f00" : "rgba(0, 255, 255, 0.5)";
             ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(cx, cy, 60, 0, Math.PI * 2);
-            ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, 120, 0, Math.PI * 2); ctx.stroke();
+            
+            // Retículas
+            ctx.beginPath(); ctx.moveTo(cx - 140, cy); ctx.lineTo(cx - 100, cy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx + 140, cy); ctx.lineTo(cx + 100, cy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx, cy - 140); ctx.lineTo(cx, cy - 100); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx, cy + 140); ctx.lineTo(cx, cy + 100); ctx.stroke();
 
-            ctx.beginPath(); ctx.moveTo(cx - 80, cy); ctx.lineTo(cx - 20, cy); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx + 80, cy); ctx.lineTo(cx + 20, cy); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx, cy - 80); ctx.lineTo(cx, cy - 20); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx, cy + 80); ctx.lineTo(cx, cy + 20); ctx.stroke();
+            // ==========================================
+            // RADAR DE NAVEGAÇÃO (Canto inferior direito)
+            // ==========================================
+            const radarX = w - 70;
+            const radarY = h - 70;
+            const radarRadius = 50;
 
-            // Painel de Dados
+            // Fundo do Radar
+            ctx.fillStyle = "rgba(0, 50, 0, 0.8)";
+            ctx.beginPath(); ctx.arc(radarX, radarY, radarRadius, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "#0f0"; ctx.lineWidth = 2; ctx.stroke();
+            
+            // Linhas do Radar
+            ctx.beginPath(); ctx.moveTo(radarX - radarRadius, radarY); ctx.lineTo(radarX + radarRadius, radarY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(radarX, radarY - radarRadius); ctx.lineTo(radarX, radarY + radarRadius); ctx.stroke();
+
+            // Ponto central (O Caminhão)
+            ctx.fillStyle = "#fff";
+            ctx.beginPath(); ctx.arc(radarX, radarY, 3, 0, Math.PI*2); ctx.fill();
+
+            // Desenha os ETs no radar
+            aliens.forEach(alien => {
+                if (alien.captured) return;
+                
+                // Calcula a posição do ET no radar em relação para onde o celular aponta agora
+                let radarAngle = this.getShortestAngle(alien.alpha, this.orientation.alpha);
+                
+                // Converte graus para radianos (ajustado para o topo do radar ser a frente)
+                let rad = (radarAngle - 90) * (Math.PI / 180);
+                
+                // Posiciona o ponto vermelho no radar
+                let dotX = radarX + Math.cos(rad) * (radarRadius * 0.7); // 0.7 para ficar dentro do círculo
+                let dotY = radarY + Math.sin(rad) * (radarRadius * 0.7);
+
+                ctx.fillStyle = "#f00";
+                ctx.beginPath(); ctx.arc(dotX, dotY, 4, 0, Math.PI*2); ctx.fill();
+            });
+
+            // Informações Textuais
             ctx.fillStyle = "#0ff";
             ctx.font = "bold 16px 'Chakra Petch'";
             ctx.textAlign = "left";
-            ctx.fillText(`GIRO X: ${Math.floor(this.orientation.alpha)}°`, 20, h - 60);
-            ctx.fillText(`GIRO Y: ${Math.floor(this.orientation.beta)}°`, 20, h - 40);
-            
-            ctx.textAlign = "right";
             const capturados = aliens.filter(a => a.captured).length;
-            ctx.fillText(`CAPTURADOS: ${capturados}/${aliens.length}`, w - 20, h - 40);
-        },
-
-        drawStartScreen: function(ctx, w, h) {
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.fillRect(0, 0, w, h);
-            ctx.fillStyle = "#0ff";
-            ctx.textAlign = "center";
-            ctx.font = "bold 30px 'Russo One'";
-            ctx.fillText("MODO EXPLORADOR AR", w/2, h/2 - 20);
+            ctx.fillText(`ALVOS RESGATADOS: ${capturados}/${aliens.length}`, 20, h - 30);
             
-            ctx.fillStyle = "#fff";
-            ctx.font = "16px Arial";
-            ctx.fillText("Toque na tela para ligar os sensores", w/2, h/2 + 20);
+            if (isLocked) {
+                ctx.fillStyle = "#f00";
+                ctx.textAlign = "center";
+                ctx.fillText("TRAVANDO MIRA...", cx, cy - 140);
+            }
         },
 
         spawnParticles: function(x, y) {
-            for(let i=0; i<20; i++) {
+            for(let i=0; i<30; i++) {
                 particles.push({
                     x: x, y: y,
-                    vx: (Math.random() - 0.5) * 15,
-                    vy: (Math.random() - 0.5) * 15,
-                    life: 1.0
+                    vx: (Math.random() - 0.5) * 20,
+                    vy: (Math.random() - 0.5) * 20,
+                    life: 1.0,
+                    color: Math.random() > 0.5 ? '#0f0' : '#0ff'
                 });
             }
         },
@@ -237,20 +313,22 @@
         updateParticles: function(ctx) {
             particles.forEach(p => {
                 p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-                ctx.fillStyle = `rgba(0, 255, 255, ${Math.max(0, p.life)})`;
-                ctx.fillRect(p.x, p.y, 5, 5);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = Math.max(0, p.life);
+                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+                ctx.globalAlpha = 1.0;
             });
             particles = particles.filter(p => p.life > 0);
         }
     };
 
-    // Note o parâmetro { camera: 'environment' } -> É isso que avisa ao core.js para virar a câmera!
+    // Registra o jogo no Core
     const regLoop = setInterval(() => {
         if(window.System && window.System.registerGame) {
-            window.System.registerGame('ar_safari', 'AR Safari', '🛸', Game, {
-                camera: 'environment',
+            window.System.registerGame('ar_safari', 'Missão Resgate', '🚀', Game, {
+                camera: 'environment', // Pede câmera traseira
                 phases: [
-                    { id: 'f1', name: 'ZONA DE TESTES', desc: 'Capture os 10 alienígenas na sua sala.', reqLvl: 1 }
+                    { id: 'f1', name: 'PATRULHA ESPACIAL', desc: 'Pilote o Rover e resgate 8 ETs.', reqLvl: 1 }
                 ]
             });
             clearInterval(regLoop);
