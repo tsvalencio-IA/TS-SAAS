@@ -1,6 +1,5 @@
 // =============================================================================
-// J.A.R.V.I.S. RECOVERY PROTOCOL - AR TRAFFIC RESCUE
-// NARRATIVA: RECUPERAÇÃO DE VEÍCULOS E SUCATA (EXTRAÇÃO ORBITAL IMEDIATA)
+// J.A.R.V.I.S. RC TRUCK: RECUPERAÇÃO DE SUCATA E CARRINHOS (VISÃO À DISTÂNCIA)
 // =============================================================================
 
 (function() {
@@ -18,11 +17,19 @@
         detectedItems: [],
         lastDetectTime: 0,
         
-        // Classes de objetos que J.A.R.V.I.S. vai transformar em "Missões de Resgate"
+        // Dicionário de objetos que a IA reconhece transformados em "Sucata"
+        // Colocamos mouse, celular e controle porque a IA confunde Hot Wheels com eles!
         targetMappings: {
-            'car': 'VEÍCULO ACIDENTADO', 'truck': 'CAMINHÃO TOMBADO', 'bus': 'ÔNIBUS PRESO',
-            'cell phone': 'CAIXA PRETA (DADOS)', 'remote': 'MÓDULO DE COMANDO', 'mouse': 'PEÇA DE MOTOR',
-            'bottle': 'TANQUE DE COMBUSTÍVEL', 'cup': 'CILINDRO DE GÁS', 'sports ball': 'NÚCLEO DE ENERGIA'
+            'car': { name: 'VEÍCULO', val: 5000, color: '#f39c12' },
+            'truck': { name: 'VEÍCULO PESADO', val: 7500, color: '#f39c12' },
+            'bus': { name: 'ÔNIBUS', val: 8000, color: '#f39c12' },
+            'train': { name: 'VAGÃO', val: 9000, color: '#f39c12' },
+            'mouse': { name: 'PEÇA METÁLICA', val: 1500, color: '#00ffff' },
+            'cell phone': { name: 'MÓDULO', val: 2000, color: '#00ffff' },
+            'remote': { name: 'CONTROLE', val: 1800, color: '#00ffff' },
+            'bottle': { name: 'CILINDRO', val: 1000, color: '#2ecc71' },
+            'cup': { name: 'RECIPIENTE', val: 800, color: '#2ecc71' },
+            'sports ball': { name: 'NÚCLEO REDONDO', val: 3000, color: '#e74c3c' }
         },
         
         // Mecânica de Captura
@@ -32,19 +39,7 @@
         
         // Missão
         itemsRecovered: 0,
-        missionGoal: 10,
-        moneyEarned: 0, // Valor em R$ da sucata/resgate
-        
-        // Sistema J.A.R.V.I.S.
-        jarvisMessage: "",
-        jarvisMessageTimer: 0,
-        typingIndex: 0,
-        isJarvisSpeaking: false,
-
-        // Estética
-        colorMain: '#00d8ff', // Cyan Stark
-        colorAlert: '#f39c12', // Laranja alerta
-        colorDanger: '#e74c3c',
+        moneyEarned: 0, 
 
         init: function(faseData) {
             this.state = 'BOOT';
@@ -56,18 +51,7 @@
             particles = [];
             time = 0;
             
-            this.transmit("Olá, Senhor. Protocolo de Limpeza de Vias ativado. Iniciando sistemas...");
             this.loadAIModel();
-        },
-
-        // --- SISTEMA DE COMUNICAÇÃO J.A.R.V.I.S. ---
-        transmit: function(msg, isUrgent = false) {
-            if (this.jarvisMessage === msg && this.jarvisMessageTimer > 0) return;
-            this.jarvisMessage = msg;
-            this.typingIndex = 0;
-            this.jarvisMessageTimer = 200; // Tempo lendo a mensagem
-            this.isJarvisSpeaking = true;
-            if(window.Sfx) window.Sfx.play(isUrgent ? 1200 : 800, 'square', 0.1, 0.05);
         },
 
         loadAIModel: async function() {
@@ -79,22 +63,16 @@
                 script.onload = async () => {
                     this.objectModel = await cocoSsd.load();
                     this.state = 'SCANNING';
-                    this.transmit("Senhor, radar online. Aguardando você encontrar o primeiro veículo acidentado.");
+                    if(window.Sfx) window.Sfx.play(600, 'square', 0.5, 0.2);
                 };
             } else {
                 this.objectModel = await cocoSsd.load();
                 this.state = 'SCANNING';
-                this.transmit("Sistemas 100%. Acelere o veículo, Senhor.");
             }
         },
 
         update: function(ctx, w, h, pose) {
             time += 0.05;
-            if (this.jarvisMessageTimer > 0) {
-                this.jarvisMessageTimer--;
-            } else {
-                this.isJarvisSpeaking = false;
-            }
 
             // 1. DESENHA A CÂMERA DE FUNDO
             if (window.System.video && window.System.video.readyState === 4) {
@@ -108,17 +86,23 @@
                 ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, w, h);
             }
 
-            // Filtro visual azulado de Alta Tecnologia (Iron Man HUD)
-            ctx.fillStyle = "rgba(0, 20, 40, 0.15)";
-            ctx.fillRect(0, 0, w, h);
-
             if (this.state === 'BOOT') {
-                this.drawHUD(ctx, w, h, w/2, h/2);
+                this.drawOverlayGigante(ctx, w, h, "INICIANDO IA...", "AGUARDE");
                 return this.score;
             }
 
             this.playMode(ctx, w, h);
             return this.score;
+        },
+
+        drawOverlayGigante: function(ctx, w, h, title, sub) {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.85)"; ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = "#00ffff"; ctx.textAlign = "center";
+            // Fontes GIGANTES para ler de longe
+            ctx.font = "bold clamp(40px, 10vw, 80px) 'Russo One'";
+            ctx.fillText(title, w/2, h/2);
+            ctx.fillStyle = "#fff"; ctx.font = "bold clamp(20px, 5vw, 40px) 'Chakra Petch'";
+            ctx.fillText(sub, w/2, h/2 + 60);
         },
 
         playMode: function(ctx, w, h) {
@@ -129,11 +113,12 @@
             if (this.cooldown > 0) this.cooldown--;
 
             // ==========================================
-            // LÓGICA DA IA (DETECÇÃO DE TRÂNSITO E SUCATA)
+            // LÓGICA DA IA (DETECÇÃO BAIXOU O FILTRO PARA 35%)
             // ==========================================
             if (this.objectModel && window.System.video && window.System.video.readyState === 4) {
                 
-                if (Date.now() - this.lastDetectTime > 250) {
+                // Roda a IA super rápido
+                if (Date.now() - this.lastDetectTime > 200) {
                     this.objectModel.detect(window.System.video).then(predictions => {
                         this.detectedItems = predictions;
                     });
@@ -144,241 +129,203 @@
                 const scaleY = h / window.System.video.videoHeight;
 
                 this.detectedItems.forEach(item => {
-                    // Verifica se o objeto está na nossa lista de "destroços/veículos"
-                    const mappedName = this.targetMappings[item.class];
-                    if (!mappedName || item.score < 0.40) return;
+                    const mappedData = this.targetMappings[item.class];
+                    // Diminuí a exigência da IA para 30% (ela vai achar muito mais coisas agora)
+                    if (!mappedData || item.score < 0.30) return;
 
                     const boxW = item.bbox[2] * scaleX;
                     const boxH = item.bbox[3] * scaleY;
                     
-                    // Ignora objetos que ocupam quase toda a tela (Paredes, pessoas grandes)
-                    if (boxW > w * 0.7 || boxH > h * 0.7 || boxW < 30) return;
+                    // Se for gigante (ex: um sofá), ignora. Tem que ser brinquedo/pequeno.
+                    if (boxW > w * 0.75) return;
 
                     const boxX = item.bbox[0] * scaleX;
                     const boxY = item.bbox[1] * scaleY;
                     const itemCx = boxX + (boxW/2);
                     const itemCy = boxY + (boxH/2);
 
-                    // Pinta de vermelho se for veículo, amarelo se for sucata
-                    const isVehicle = ['car', 'truck', 'bus'].includes(item.class);
-                    const boxColor = isVehicle ? this.colorDanger : this.colorAlert;
+                    // Desenha HUD no objeto
+                    this.drawSmartBox(ctx, boxX, boxY, boxW, boxH, mappedData.name, mappedData.color);
 
-                    // Desenha o rastreador inteligente no objeto real
-                    this.drawSmartBox(ctx, boxX, boxY, boxW, boxH, mappedName, boxColor);
-
-                    // Mira central
+                    // Verifica se está no centro da tela
                     const distToCenter = Math.hypot(itemCx - cx, itemCy - cy);
                     
-                    if (distToCenter < 130 && this.cooldown <= 0 && this.state === 'SCANNING') {
-                        potentialTarget = { ...item, cx: itemCx, cy: itemCy, w: boxW, h: boxH, mappedName: mappedName, color: boxColor };
+                    // Aumentei o raio de captura para ficar mais fácil com o carrinho tremendo
+                    if (distToCenter < 180 && this.cooldown <= 0 && this.state === 'SCANNING') {
+                        potentialTarget = { ...item, cx: itemCx, cy: itemCy, w: boxW, h: boxH, data: mappedData };
                     }
                 });
             }
 
             // ==========================================
-            // EXTRAÇÃO ORBITAL IMEDIATA (Sem voltar pra base)
+            // LÓGICA DE EXTRAÇÃO
             // ==========================================
-
             if (this.state === 'SCANNING') {
                 if (potentialTarget) {
                     this.targetItem = potentialTarget;
                     this.state = 'EXTRACTING';
-                    this.transmit(`Senhor, travei a mira em um [${this.targetItem.mappedName}]. Solicitando drone de extração!`, true);
-                } else {
-                    if (this.jarvisMessageTimer <= 0 && Math.random() > 0.99) {
-                        this.transmit("As vias parecem limpas no momento, Senhor. Continue o patrulhamento.");
-                    }
+                    if(window.Sfx) window.Sfx.play(1000, 'sawtooth', 0.1, 0.1);
                 }
             }
 
             if (this.state === 'EXTRACTING') {
-                if (potentialTarget && potentialTarget.mappedName === this.targetItem.mappedName) {
-                    this.targetItem = potentialTarget; // Atualiza a posição caso o carrinho real se mexa
-                    this.scanProgress += 2.0;
+                if (potentialTarget && potentialTarget.data.name === this.targetItem.data.name) {
+                    this.targetItem = potentialTarget; 
                     
-                    if (this.scanProgress % 15 === 0 && window.Sfx) window.Sfx.hover();
+                    // Carrega a barra BEM MAIS RÁPIDO (1 segundo já captura)
+                    this.scanProgress += 3.5;
+                    
+                    if (this.scanProgress % 10 === 0 && window.Sfx) window.Sfx.hover();
 
-                    // --- EFEITO DA MIRA DE DRONE ---
+                    // --- EFEITO GIGANTE DE MIRA TRAVANDO ---
                     ctx.save();
-                    ctx.translate(this.targetItem.cx, this.targetItem.cy);
-                    ctx.rotate(-time * 2);
-                    ctx.strokeStyle = this.targetItem.color; 
-                    ctx.lineWidth = 4;
-                    ctx.setLineDash([15, 20]);
-                    const ringSize = 120 - (this.scanProgress * 0.6);
+                    ctx.translate(cx, cy); // Mira fixa no centro da tela
+                    ctx.rotate(time);
+                    ctx.strokeStyle = "#ff0000"; 
+                    ctx.lineWidth = 15; // Linha muito grossa para ver de longe
+                    
+                    // O círculo vai fechando
+                    const ringSize = Math.max(80, 200 - this.scanProgress);
                     ctx.beginPath(); ctx.arc(0, 0, ringSize, 0, Math.PI*2); ctx.stroke();
                     ctx.restore();
 
-                    // --- RAIO DE TRAVAMENTO ---
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 1;
-                    ctx.beginPath(); ctx.moveTo(cx, h); ctx.lineTo(this.targetItem.cx, this.targetItem.cy); ctx.stroke();
+                    // Linha do centro até o objeto
+                    ctx.strokeStyle = "rgba(255, 0, 0, 0.8)"; ctx.lineWidth = 8;
+                    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(this.targetItem.cx, this.targetItem.cy); ctx.stroke();
 
                     // CONCLUIU A EXTRAÇÃO!
                     if (this.scanProgress >= 100) {
                         this.itemsRecovered++;
-                        let reward = ['car', 'truck', 'bus'].includes(this.targetItem.class) ? 5000 : 1500; // Veículos valem mais
+                        let reward = this.targetItem.data.val;
                         this.moneyEarned += reward;
                         this.score += reward / 10;
                         
                         this.state = 'SCANNING';
                         this.scanProgress = 0;
-                        this.cooldown = 120; // 2 segundos antes de poder mirar em outra coisa
+                        this.cooldown = 90; // Espera ~1.5 seg para focar em outro
                         
-                        if(window.Gfx) window.Gfx.shakeScreen(25);
+                        if(window.Gfx) window.Gfx.shakeScreen(30);
                         if(window.Sfx) window.Sfx.epic();
                         
-                        // O RAIO DE TELETRANSPORTE (Drone Orbital)
-                        this.spawnOrbitalStrike(this.targetItem.cx, this.targetItem.cy, this.targetItem.color);
-                        this.transmit(`Resgate bem sucedido, Senhor. +R$${reward} adicionados às Indústrias Stark.`);
-                        
+                        this.spawnOrbitalStrike(this.targetItem.cx, this.targetItem.cy, this.targetItem.data.color);
                         this.targetItem = null;
 
-                        // Verifica fim de missão
-                        if (this.itemsRecovered >= this.missionGoal) {
-                            setTimeout(() => {
-                                window.System.msg("VIAS LIMPAS!");
-                                window.System.gameOver(this.score, true, this.moneyEarned / 100);
-                            }, 3000);
-                        }
+                        // Notificação Gigante de Dinheiro
+                        window.System.msg("+ R$ " + reward);
                     }
                 } else {
-                    // Alvo saiu da mira
-                    this.scanProgress = Math.max(0, this.scanProgress - 4);
+                    // Perdeu
+                    this.scanProgress = Math.max(0, this.scanProgress - 5);
                     if (this.scanProgress <= 0) {
                         this.state = 'SCANNING';
-                        this.transmit("Perdemos o travamento. Alinhe o veículo novamente, Senhor.");
                         this.targetItem = null;
+                        if(window.Sfx) window.Sfx.error();
                     }
                 }
             }
 
-            // DESENHA O HUD PRINCIPAL
-            this.drawHUD(ctx, w, h, cx, cy);
+            // DESENHA O HUD PRINCIPAL GIGANTE
+            this.drawMassiveHUD(ctx, w, h, cx, cy);
             this.updateParticles(ctx, w, h);
         },
 
-        // Desenha a caixa high-tech nos carros acidentados
         drawSmartBox: function(ctx, x, y, bw, bh, label, color) {
-            ctx.strokeStyle = color; ctx.lineWidth = 2;
-            const l = 15; 
-            
-            ctx.beginPath();
-            ctx.moveTo(x, y+l); ctx.lineTo(x, y); ctx.lineTo(x+l, y);
-            ctx.moveTo(x+bw-l, y); ctx.lineTo(x+bw, y); ctx.lineTo(x+bw, y+l);
-            ctx.moveTo(x+bw, y+bh-l); ctx.lineTo(x+bw, y+bh); ctx.lineTo(x+bw-l, y+bh);
-            ctx.moveTo(x+l, y+bh); ctx.lineTo(x, y+bh); ctx.lineTo(x, y+bh-l);
-            ctx.stroke();
+            // Desenha a caixa no objeto
+            ctx.strokeStyle = color; ctx.lineWidth = 6;
+            ctx.strokeRect(x, y, bw, bh);
 
-            // Rótulo da IA
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.fillRect(x, y - 24, ctx.measureText(label).width + 16, 24);
-            ctx.fillStyle = color; ctx.font = "bold 12px 'Chakra Petch'"; ctx.textAlign="left";
-            ctx.fillText(label, x + 8, y - 7);
+            // Fundo escuro para a letra dar contraste
+            ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+            // Letras GIGANTES para ler de longe
+            ctx.font = "bold clamp(20px, 4vw, 30px) 'Russo One'";
+            const textW = ctx.measureText(label).width;
+            ctx.fillRect(x, y - 40, textW + 20, 40);
+            
+            ctx.fillStyle = color; ctx.textAlign = "left";
+            ctx.fillText(label, x + 10, y - 10);
         },
 
-        drawHUD: function(ctx, w, h, cx, cy) {
-            // Efeito de tela Stark (linhas e brilhos leves)
-            ctx.strokeStyle = "rgba(0, 216, 255, 0.1)"; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(100, h/2); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(w-100, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+        drawMassiveHUD: function(ctx, w, h, cx, cy) {
+            // Efeito visual na tela (Filtro escuro nas bordas para destacar o meio)
+            const grad = ctx.createRadialGradient(cx, cy, h*0.3, cx, cy, h);
+            grad.addColorStop(0, "rgba(0,0,0,0)");
+            grad.addColorStop(1, "rgba(0,0,0,0.6)");
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
 
             // =====================================
-            // SISTEMA J.A.R.V.I.S. DE COMUNICAÇÃO
+            // AVISOS GIGANTES NA TELA
             // =====================================
-            ctx.fillStyle = "rgba(0, 15, 25, 0.85)"; ctx.fillRect(10, 10, w - 20, 70);
-            
-            // Desenha as barrinhas de voz pulando se ele estiver falando
-            for(let i=0; i<6; i++) {
-                let barH = this.isJarvisSpeaking ? (Math.random() * 20 + 5) : 5;
-                ctx.fillStyle = this.colorAlert;
-                ctx.fillRect(25 + (i * 8), 45 - barH/2, 5, barH);
-            }
-            ctx.fillStyle = this.colorMain; ctx.font = "bold 14px 'Russo One'"; ctx.textAlign="left";
-            ctx.fillText("J.A.R.V.I.S.", 80, 30);
-
-            // Efeito de digitação da mensagem
-            if (this.typingIndex < this.jarvisMessage.length) this.typingIndex += 1.5;
-            let currentText = this.jarvisMessage.substring(0, Math.floor(this.typingIndex));
-            
-            ctx.fillStyle = "#fff"; ctx.font = "14px 'Chakra Petch'";
-            ctx.fillText(currentText + (Math.floor(time*5)%2===0 && this.isJarvisSpeaking ? "..." : ""), 80, 55);
-
-            // =====================================
-            // MIRA CENTRAL PERMANENTE DO CAMINHÃO
-            // =====================================
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(time * 0.4);
-            ctx.strokeStyle = this.state === 'EXTRACTING' ? this.colorDanger : this.colorMain;
-            ctx.lineWidth = 1;
-            
-            // Círculo interno cruzado
-            ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI*2); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(-50, 0); ctx.lineTo(50, 0); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, -50); ctx.lineTo(0, 50); ctx.stroke();
-
-            // Círculo externo tracejado
-            ctx.rotate(-time * 0.8);
-            ctx.setLineDash([20, 15]);
-            ctx.beginPath(); ctx.arc(0, 0, 90, 0, Math.PI*2); ctx.stroke();
-            ctx.restore();
-
-            // Barra de Extração
             if (this.state === 'EXTRACTING') {
-                ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; ctx.fillRect(cx - 120, cy + 120, 240, 20);
-                ctx.fillStyle = this.colorDanger; ctx.fillRect(cx - 120, cy + 120, (this.scanProgress/100) * 240, 20);
-                ctx.strokeStyle = "#fff"; ctx.strokeRect(cx - 120, cy + 120, 240, 20);
+                // Tela pisca em vermelho suave
+                ctx.fillStyle = `rgba(255, 0, 0, ${Math.abs(Math.sin(time*5))*0.3})`;
+                ctx.fillRect(0, 0, w, h);
+
+                ctx.fillStyle = "#ff0000"; ctx.textAlign = "center";
+                ctx.font = "bold clamp(40px, 8vw, 80px) 'Russo One'";
+                ctx.shadowColor = "#000"; ctx.shadowBlur = 10;
+                ctx.fillText("TRAVANDO ALVO!", w/2, 80);
                 
-                ctx.fillStyle = "#fff"; ctx.font = "bold 14px 'Russo One'"; ctx.textAlign="center";
-                ctx.fillText(`CÁLCULO DE TELETRANSPORTE: ${Math.floor(this.scanProgress)}%`, cx, cy + 160);
+                // Barra de Loading GIGANTE no meio
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.fillRect(w*0.1, h*0.7, w*0.8, 60);
+                ctx.fillStyle = "#ff0000";
+                ctx.fillRect(w*0.1, h*0.7, (this.scanProgress/100) * (w*0.8), 60);
+                ctx.strokeStyle = "#fff"; ctx.lineWidth = 4;
+                ctx.strokeRect(w*0.1, h*0.7, w*0.8, 60);
+            } 
+            else if (this.state === 'SCANNING') {
+                // Tela normal, mira central gigante
+                ctx.strokeStyle = "rgba(0, 255, 255, 0.5)"; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(cx, cy, 150, 0, Math.PI*2); ctx.stroke();
+                // Cruz
+                ctx.beginPath(); ctx.moveTo(cx-170, cy); ctx.lineTo(cx+170, cy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx, cy-170); ctx.lineTo(cx, cy+170); ctx.stroke();
+                
+                // Texto superior
+                ctx.fillStyle = "#00ffff"; ctx.textAlign = "center";
+                ctx.font = "bold clamp(30px, 6vw, 60px) 'Russo One'";
+                ctx.shadowColor = "#000"; ctx.shadowBlur = 10;
+                ctx.fillText("PROCURANDO SUCATA", w/2, 60);
             }
 
-            // =====================================
-            // PAINEL DE DADOS DO VEÍCULO (EMBAIXO)
-            // =====================================
-            ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.fillRect(0, h - 80, w, 80);
-            ctx.strokeStyle = this.colorMain; ctx.lineWidth = 2; 
-            ctx.beginPath(); ctx.moveTo(0, h - 80); ctx.lineTo(w, h - 80); ctx.stroke();
+            ctx.shadowBlur = 0; // reseta sombra
 
-            // Missão e Grana
+            // =====================================
+            // PAINEL DE DINHEIRO (RODAPÉ GIGANTE)
+            // =====================================
+            ctx.fillStyle = "rgba(0, 0, 0, 0.85)"; ctx.fillRect(0, h - 100, w, 100);
+            ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4; 
+            ctx.beginPath(); ctx.moveTo(0, h - 100); ctx.lineTo(w, h - 100); ctx.stroke();
+
             ctx.textAlign = "left";
-            ctx.fillStyle = this.colorMain; ctx.font = "bold 16px 'Chakra Petch'";
-            ctx.fillText(`LIMPEZA DAS VIAS: ${this.itemsRecovered} / ${this.missionGoal}`, 20, h - 45);
+            ctx.fillStyle = "#00ffff"; ctx.font = "bold clamp(20px, 4vw, 30px) 'Chakra Petch'";
+            ctx.fillText(`ITENS: ${this.itemsRecovered}`, 20, h - 60);
             
-            ctx.fillStyle = "#2ecc71"; ctx.font = "bold 22px 'Russo One'";
-            ctx.fillText(`VALOR RESGATADO: R$ ${this.moneyEarned.toLocaleString('pt-BR')}`, 20, h - 15);
+            ctx.fillStyle = "#2ecc71"; ctx.font = "bold clamp(30px, 6vw, 50px) 'Russo One'";
+            ctx.fillText(`R$ ${this.moneyEarned.toLocaleString('pt-BR')}`, 20, h - 20);
 
-            // Alerta de Resfriamento
+            // Cooldown alert
             if (this.cooldown > 0) {
                 ctx.textAlign = "right";
-                ctx.fillStyle = this.colorAlert; ctx.font = "16px 'Russo One'";
-                ctx.fillText("SISTEMA DE EXTRAÇÃO RECARREGANDO", w - 20, h - 45);
-                ctx.fillRect(w - 220, h - 30, (this.cooldown/120)*200, 10);
-            } else {
-                ctx.textAlign = "right";
-                ctx.fillStyle = this.colorMain; ctx.font = "14px 'Chakra Petch'";
-                ctx.fillText("PRONTO PARA PRÓXIMO ALVO", w - 20, h - 30);
+                ctx.fillStyle = "#f39c12"; ctx.font = "bold clamp(20px, 4vw, 30px) 'Russo One'";
+                ctx.fillText("RECARREGANDO...", w - 20, h - 45);
             }
         },
 
-        // A Animação Mágica: Um raio desce do céu e teleporta o brinquedo!
+        // Efeito visual quando o brinquedo é sugado
         spawnOrbitalStrike: function(x, y, color) {
-            // Partículas da explosão no chão
-            for(let i=0; i<60; i++) {
+            for(let i=0; i<80; i++) {
                 const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 25 + 10;
+                const speed = Math.random() * 30 + 10;
                 particles.push({
                     type: 'boom', x: x, y: y,
                     vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                    life: 1.0, size: Math.random() * 10 + 5, color: color
+                    life: 1.0, size: Math.random() * 15 + 5, color: color
                 });
             }
             
-            // O Raio de Teletransporte
-            particles.push({
-                type: 'laser', x: x, y: y,
-                life: 1.0, color: '#00ffff'
-            });
+            // O Raio Laser descendo do teto
+            particles.push({ type: 'laser', x: x, y: y, life: 1.0, color: '#00ffff' });
         },
 
         updateParticles: function(ctx, w, h) {
@@ -387,21 +334,19 @@
             particles.forEach(p => {
                 if (p.type === 'boom') {
                     p.x += p.vx; p.y += p.vy; 
-                    p.life -= 0.05; p.size *= 0.92;
+                    p.life -= 0.04; p.size *= 0.92;
                     ctx.fillStyle = p.color;
                     ctx.globalAlpha = Math.max(0, p.life);
                     ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
                 } 
                 else if (p.type === 'laser') {
-                    // Desenha o Raio Orbital Gigante
                     ctx.globalAlpha = Math.max(0, p.life);
-                    ctx.fillStyle = "rgba(0, 255, 255, 0.8)";
-                    // Um pilar de luz descendo do topo da tela até o objeto
-                    ctx.fillRect(p.x - 40, 0, 80, p.y);
+                    ctx.fillStyle = "rgba(0, 255, 255, 0.9)";
+                    // Laser gigante cobrindo o objeto
+                    ctx.fillRect(p.x - 60, 0, 120, p.y);
                     ctx.fillStyle = "#ffffff";
-                    ctx.fillRect(p.x - 15, 0, 30, p.y);
-                    
-                    p.life -= 0.08; // Some bem rápido como um flash
+                    ctx.fillRect(p.x - 25, 0, 50, p.y);
+                    p.life -= 0.05; 
                 }
             });
             
@@ -415,10 +360,10 @@
 
     const regLoop = setInterval(() => {
         if(window.System && window.System.registerGame) {
-            window.System.registerGame('ar_recovery', 'J.A.R.V.I.S. AR', '🛸', Game, {
-                camera: 'environment', // Exige câmera traseira
+            window.System.registerGame('ar_recovery', 'Recuperador AR', '🚁', Game, {
+                camera: 'environment', // Câmera Traseira obrigatória!
                 phases: [
-                    { id: 'f1', name: 'RESGATE URBANO', desc: 'Pilote, encontre os acidentes e J.A.R.V.I.S. cuidará da extração imediata.', reqLvl: 1 }
+                    { id: 'f1', name: 'PATRULHA DE SUCATA', desc: 'Pilote e colete os brinquedos perdidos pelo chão.', reqLvl: 1 }
                 ]
             });
             clearInterval(regLoop);
