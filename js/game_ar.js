@@ -264,7 +264,7 @@
     let particles = [];
     
     const Game = {
-        state: 'BOOT', 
+        state: 'UNINITIALIZED', 
         lastTime: 0,
         timeTotal: 0,
         score: 0,
@@ -338,6 +338,7 @@
         },
 
         init: function() {
+            this.state = 'INIT'; // Prevent immediate return in changeState
             this.lastTime = performance.now();
             this.timeTotal = 0;
             this.score = 0;
@@ -381,7 +382,7 @@
             this.money += bonus;
             window.System.msg("OBJETIVO CUMPRIDO! BÔNUS: R$" + bonus);
             this.baseFlash = 1.0;
-            if (window.Sfx) window.Sfx.epic();
+            if (window.Sfx && typeof window.Sfx.epic === 'function') window.Sfx.epic();
         },
 
         changeState: function(newState) {
@@ -426,7 +427,9 @@
                     window.System.msg("SISTEMAS CRÍTICOS! VOLTANDO À BASE.");
                     break;
                 case 'GAME_OVER':
-                    window.System.gameOver(this.score, true, this.money);
+                    if(window.System && typeof window.System.gameOver === 'function') {
+                        window.System.gameOver(this.score, true, this.money);
+                    }
                     break;
             }
         },
@@ -508,13 +511,15 @@
         },
 
         loadAIModel: async function() {
-            const loadTask = new Promise(async (resolve) => {
+            const loadTask = new Promise((resolve) => {
                 try {
                     if (typeof cocoSsd === 'undefined') {
                         const script = document.createElement('script');
                         script.src = "https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd";
                         script.onload = async () => {
-                            this.objectModel = await cocoSsd.load().catch(() => null);
+                            if (typeof cocoSsd !== 'undefined') {
+                                this.objectModel = await cocoSsd.load().catch(() => null);
+                            }
                             resolve();
                         };
                         script.onerror = () => {
@@ -523,8 +528,13 @@
                         };
                         document.head.appendChild(script);
                     } else {
-                        this.objectModel = await cocoSsd.load().catch(() => null);
-                        resolve();
+                        cocoSsd.load().then(model => {
+                            this.objectModel = model;
+                            resolve();
+                        }).catch(() => {
+                            this.objectModel = null;
+                            resolve();
+                        });
                     }
                 } catch (e) {
                     this.objectModel = null;
@@ -813,10 +823,12 @@
 
         getAverageColor: function(ctx, x, y, w, h) {
             try {
-                const data = ctx.getImageData(x, y, w, h).data;
+                const data = ctx.getImageData(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h)).data;
                 let r=0, g=0, b=0;
                 for (let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
-                let c = data.length/4; return {r:r/c, g:g/c, b:b/c};
+                let c = data.length/4; 
+                if (c === 0) return {r:0, g:0, b:0};
+                return {r:r/c, g:g/c, b:b/c};
             } catch(e) { return {r:0,g:0,b:0}; }
         },
 
@@ -874,7 +886,7 @@
                 
                 if (actionForce > 1.0) {
                     this.extractProgress += (actionForce * this.stats.scanPower * dt * 5);
-                    if(window.Gfx) window.Gfx.addShake(1);
+                    if(window.Gfx && typeof window.Gfx.addShake === 'function') window.Gfx.addShake(1);
                 } else {
                     this.extractProgress = Math.max(0, this.extractProgress - (15 * dt));
                 }
@@ -912,7 +924,7 @@
                     this.isExtracting = false;
                     this.cooldown = 2.0; 
                     
-                    if(window.Gfx) window.Gfx.shakeScreen(20);
+                    if(window.Gfx && typeof window.Gfx.shakeScreen === 'function') window.Gfx.shakeScreen(20);
                     if(navigator.vibrate) navigator.vibrate([50, 50, 50]);
                     this.collectGlow = 1.0;
                     this.collectZoom = 1.0;
@@ -1045,8 +1057,8 @@
 
         handleOfficeAction: function(actionId) {
             const buyObj = (cost, callback) => {
-                if (this.money >= cost && cost > 0) { this.money -= cost; callback(); if(window.Sfx) window.Sfx.coin(); return true; }
-                if(window.Sfx) window.Sfx.error(); return false;
+                if (this.money >= cost && cost > 0) { this.money -= cost; callback(); if(window.Sfx && typeof window.Sfx.coin === 'function') window.Sfx.coin(); return true; }
+                if(window.Sfx && typeof window.Sfx.error === 'function') window.Sfx.error(); return false;
             };
 
             let fuelCost = Math.floor((this.stats.maxFuel - this.fuel) * 2);
