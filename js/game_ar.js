@@ -1,13 +1,13 @@
 // =============================================================================
-// AR TOY TRUCK SIMULATOR: MASTER ARCHITECT EDITION (V16 - RESPONSIVE UI FIX)
-// ENGINE AR HÍBRIDA PROFISSIONAL: INTERFACE LIMPA, RESPONSIVA E OTIMIZADA
+// AR TOY TRUCK SIMULATOR: MASTER ARCHITECT EDITION (V17 - THE REAL AR EXPERIENCE)
+// AR WAYPOINTS 3D, CAMERA SWITCH INSTANTÂNEO, UI LIMPA E TOUCH FALLBACK
 // =============================================================================
 
 (function() {
     "use strict";
 
     // =========================================================================
-    // 1) CAMERA MANAGER OBRIGATÓRIO
+    // 1) CAMERA MANAGER OBRIGATÓRIO (FIX DE PERMISSÃO)
     // =========================================================================
     const CameraManager = {
         isSwitching: false,
@@ -166,9 +166,9 @@
 
             const cx = w / 2; const cy = h / 2;
             
-            // Layout adaptativo para mobile e desktop
+            // Layout responsivo Oficina
             const gap = 10;
-            const btnW = 150;
+            const btnW = Math.min(160, (w/2) - 20);
             this.buttons[0].x = cx - btnW - gap; this.buttons[0].y = cy - 80;  this.buttons[0].w = btnW;
             this.buttons[1].x = cx + gap;        this.buttons[1].y = cy - 80;  this.buttons[1].w = btnW;
             this.buttons[2].x = cx - btnW - gap; this.buttons[2].y = cy - 10;  this.buttons[2].w = btnW;
@@ -180,12 +180,10 @@
             ctx.fillStyle = "rgba(0, 15, 30, 0.9)"; ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = "#00ffff"; ctx.textAlign = "center";
             ctx.font = "bold clamp(24px, 6vw, 40px) 'Russo One'";
-            ctx.fillText("GARAGEM HOLOGRÁFICA", cx, Math.max(40, cy - 160));
+            ctx.fillText("OFICINA HOLOGRÁFICA", cx, Math.max(40, cy - 140));
             
             ctx.fillStyle = "#00ff66"; ctx.font = "bold clamp(18px, 4vw, 24px) 'Chakra Petch'";
-            ctx.fillText(`SALDO: R$ ${Math.floor(gameState.displayMoney).toLocaleString()}`, cx, Math.max(70, cy - 130));
-            ctx.fillStyle = "#fff"; ctx.font = "clamp(12px, 3vw, 16px) Arial";
-            ctx.fillText(`VIDA: ${Math.floor(gameState.health)}/100 | COMB: ${Math.floor(gameState.displayFuel)}/${gameState.stats.maxFuel}`, cx, Math.max(90, cy - 110));
+            ctx.fillText(`SALDO: R$ ${Math.floor(gameState.displayMoney).toLocaleString()}`, cx, Math.max(70, cy - 110));
 
             let currentlyHovering = null;
 
@@ -221,7 +219,7 @@
             if (currentlyHovering) {
                 if (this.hoveredBtn === currentlyHovering) {
                     this.hoverTime += dt;
-                    if (this.hoverTime >= 1.2) {
+                    if (this.hoverTime >= 1.0) { // Reduzido para 1 segundo
                         if (this.eventCallback) this.eventCallback(this.hoveredBtn);
                         this.hoverTime = 0; 
                     }
@@ -240,12 +238,12 @@
                 if (this.hoverTime > 0) {
                     ctx.strokeStyle = "#00ff66"; ctx.lineWidth = 4;
                     ctx.beginPath();
-                    ctx.arc(this.cursor.x, this.cursor.y, 25, -Math.PI/2, -Math.PI/2 + (this.hoverTime/1.2)*(Math.PI*2));
+                    ctx.arc(this.cursor.x, this.cursor.y, 25, -Math.PI/2, -Math.PI/2 + (this.hoverTime/1.0)*(Math.PI*2));
                     ctx.stroke();
                 }
             } else {
-                ctx.fillStyle = "#fff"; ctx.font = "14px Arial"; ctx.textAlign = "center";
-                ctx.fillText("MOSTRE A MÃO PARA A CÂMERA PARA CONTROLAR", cx, h - 20);
+                ctx.fillStyle = "#aaa"; ctx.font = "12px Arial"; ctx.textAlign = "center";
+                ctx.fillText("MOSTRE A MÃO PARA A CÂMERA OU TOQUE NOS BOTÕES", cx, h - 20);
             }
         },
 
@@ -274,6 +272,7 @@
         
         transitionAlpha: 0,
         transitionPhase: 0,
+        pendingCamPromise: null, // Novo: Guarda a promessa da câmera
         
         vPos: { x: 0, y: 0 },
         baseHeading: 0,
@@ -304,14 +303,12 @@
         eventTimer: 0,
         _sensorsReady: false,
         
-        // Premium Feedback Vars
         displayMoney: 0,
         displayFuel: 100,
         collectGlow: 0,
         collectZoom: 0,
         baseFlash: 0,
 
-        // Missões
         currentMission: { type: 'NORMAL', goal: 3, progress: 0, timer: 0, active: false },
         
         health: 100,
@@ -498,10 +495,11 @@
                 else if (this.state === 'PLAY_REAR_AR' || this.state === 'TOW_MODE') {
                     let distToBase = Math.hypot(this.vPos.x, this.vPos.y);
                     
-                    // Radar/Garage Hitbox (Top Right)
-                    const btnS = Math.min(50, w * 0.15);
-                    if (y > 60 && y < 60 + btnS && x > w - btnS - 10 && x < w - 10) {
+                    // BOTÃO DA GARAGEM: Aciona imediatamente a troca de câmera
+                    if (y > 60 && y < 100 && x > w - 120 && x < w - 10) {
                         if (distToBase < 30) {
+                            // A chamada OBRIGATORIAMENTE deve acontecer direto no evento de click para o browser aceitar
+                            this.pendingCamPromise = CameraManager.startFrontCamera();
                             this.changeState('ENTER_BASE_TRANSITION');
                         } else {
                             window.System.msg("MUITO LONGE DA BASE!");
@@ -509,11 +507,19 @@
                         return;
                     }
                     
-                    // Accelerate Hitbox (Bottom Left)
-                    const accR = Math.min(50, w * 0.15);
-                    if (x < 20 + accR*2 && y > h - 80 - accR*2 && this.state !== 'TOW_MODE') {
+                    // BOTÃO ACELERAR
+                    const accR = Math.min(45, w * 0.12);
+                    if (x < 30 + accR*2 && y > h - 80 - accR*2) {
                         this.manualAccelerate = true;
                     }
+                }
+                else if (this.state === 'FRONT_AR_OFFICE') {
+                    // TOUCH FALLBACK SE A IA DE MÃO FALHAR
+                    GestureOffice.buttons.forEach(btn => {
+                        if (x > btn.x && x < btn.x + btn.w && y > btn.y && y < btn.y + btn.h) {
+                            if (GestureOffice.eventCallback) GestureOffice.eventCallback(btn.id);
+                        }
+                    });
                 }
             };
             canvas.onpointerup = () => { this.manualAccelerate = false; };
@@ -594,7 +600,6 @@
             this.lastTime = now;
             this.timeTotal += dt;
 
-            // Smooth Interpolations
             if (isNaN(this.displayMoney)) this.displayMoney = 0;
             if (isNaN(this.displayFuel)) this.displayFuel = 100;
             this.displayMoney += (this.money - this.displayMoney) * 10 * dt;
@@ -612,13 +617,11 @@
             if (!['FRONT_AR_OFFICE', 'ENTER_BASE_TRANSITION', 'EXIT_BASE_TRANSITION'].includes(this.state)) {
                 ctx.save();
                 
-                // Micro Oscillation (Premium Suspension Feel)
                 if (this.virtualSpeed > 0.1 && !this.isExtracting) {
                     let susY = Math.sin(this.timeTotal * this.virtualSpeed * 1.5) * (this.virtualSpeed / this.stats.baseSpeed) * 3;
                     ctx.translate(0, susY);
                 }
 
-                // Collect Zoom Effect
                 if (this.collectZoom > 0) {
                     let z = 1 + (this.collectZoom * 0.03);
                     ctx.translate(w/2, h/2);
@@ -640,7 +643,6 @@
                     ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, w, h);
                 }
                 
-                // Base Flash Overlay
                 if (this.baseFlash > 0) {
                     ctx.fillStyle = `rgba(0, 255, 100, ${this.baseFlash * 0.5})`;
                     ctx.fillRect(0, 0, w, h);
@@ -669,7 +671,7 @@
                     this.drawHUD(ctx, w, h);
                     break;
                 case 'ENTER_BASE_TRANSITION':
-                    this.processTransition(ctx, w, h, dt, 'startFrontCamera', 'FRONT_AR_OFFICE');
+                    this.processTransition(ctx, w, h, dt, 'FRONT_AR_OFFICE');
                     break;
                 case 'FRONT_AR_OFFICE':
                     if (window.System?.video && window.System.video.readyState === 4) {
@@ -687,7 +689,7 @@
                     GestureOffice.update(ctx, w, h, dt, this);
                     break;
                 case 'EXIT_BASE_TRANSITION':
-                    this.processTransition(ctx, w, h, dt, 'startRearCamera', 'PLAY_REAR_AR');
+                    this.processTransition(ctx, w, h, dt, 'PLAY_REAR_AR');
                     break;
                 case 'GAME_OVER':
                     this.drawOverlay(ctx, w, h, "FIM DE JOGO", "Calculando pontuação...");
@@ -698,29 +700,38 @@
             return this.score || 0; 
         },
 
-        processTransition: function(ctx, w, h, dt, camFunc, nextState) {
+        processTransition: function(ctx, w, h, dt, nextState) {
             if (this.transitionPhase === 'FADE_OUT') {
-                this.transitionAlpha += dt * 2.5;
+                this.transitionAlpha += dt * 3.0; // Fade mais rápido
                 if (this.transitionAlpha >= 1) {
                     this.transitionAlpha = 1;
                     this.transitionPhase = 'SWITCH_CAM';
-                    CameraManager[camFunc]().then(() => {
+                    
+                    // Aguarda a promessa que foi disparada no evento de clique!
+                    if (this.pendingCamPromise) {
+                        this.pendingCamPromise.then(() => {
+                            this.transitionPhase = 'FADE_IN';
+                            this.pendingCamPromise = null;
+                        }).catch(() => {
+                            this.transitionPhase = 'FADE_IN';
+                            this.pendingCamPromise = null;
+                        });
+                    } else {
                         this.transitionPhase = 'FADE_IN';
-                    }).catch(() => {
-                        this.transitionPhase = 'FADE_IN';
-                    });
+                    }
                 }
             } else if (this.transitionPhase === 'SWITCH_CAM') {
                 ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h);
                 ctx.fillStyle = "#fff"; ctx.font = "bold 20px Arial"; ctx.textAlign="center";
                 ctx.fillText("SISTEMAS REINICIANDO...", w/2, h/2);
             } else if (this.transitionPhase === 'FADE_IN') {
-                this.transitionAlpha -= dt * 2.5;
+                this.transitionAlpha -= dt * 3.0;
                 if (this.transitionAlpha <= 0) {
                     this.transitionAlpha = 0;
                     this.changeState(nextState);
                 }
             }
+            
             if (this.transitionPhase !== 'SWITCH_CAM') {
                 ctx.fillStyle = `rgba(0,0,0,${this.transitionAlpha})`;
                 ctx.fillRect(0, 0, w, h);
@@ -730,7 +741,6 @@
         updatePhysics: function(dt) {
             if (this.cooldown > 0) this.cooldown -= dt;
 
-            // Premium Feel: Aceleração e Drag Quadrático
             let accelInput = (this.manualAccelerate || this.deviceForce > 0.5) ? (5.0 + this.upgrades.engine.lvl) : 0;
             let drag = 0.05 * this.virtualSpeed * this.virtualSpeed; 
             
@@ -745,6 +755,7 @@
                 this.virtualSpeed = Math.min(this.virtualSpeed, this.stats.baseSpeed * 0.4);
                 let distToBase = Math.hypot(this.vPos.x, this.vPos.y);
                 if (distToBase < 30) {
+                    this.pendingCamPromise = CameraManager.startFrontCamera();
                     this.changeState('ENTER_BASE_TRANSITION');
                     return;
                 }
@@ -761,7 +772,6 @@
                 this.vPos.x += Math.sin(rad) * currentSpeed * dt;
                 this.vPos.y -= Math.cos(rad) * currentSpeed * dt; 
 
-                // Wear Rate Physics Application
                 let wearMod = 1.0 - ((this.upgrades.truck?.lvl || 1) * 0.05);
                 this.wear.motor = Math.min(100, this.wear.motor + (this.stats.wearRate * wearMod * dt));
                 this.wear.wheels = Math.min(100, this.wear.wheels + (this.stats.wearRate * wearMod * 1.5 * dt));
@@ -769,7 +779,6 @@
                 let isHeavyLoad = (this.currentMission && this.currentMission.active && this.currentMission.type === 'HEAVY LOAD');
                 let heavyMod = isHeavyLoad ? 2.0 : 1.0;
 
-                // Combustível - Zero consumo se parado strict
                 let cargoWeight = this.cargo.length;
                 let baseDrain = 0.8 / 60; 
                 let speedDrain = this.virtualSpeed * 0.015;
@@ -786,7 +795,6 @@
                 this.changeState('TOW_MODE');
             }
 
-            // Mission Logic
             if (this.currentMission && this.currentMission.active && this.currentMission.type === 'TIMED' && this.state !== 'TOW_MODE') {
                 this.currentMission.timer -= dt;
                 if (this.currentMission.timer <= 0) {
@@ -832,7 +840,6 @@
 
         getAverageColor: function(ctx, x, y, w, h) {
             try {
-                // Ensure dimensions are positive to prevent error
                 if (w <= 0 || h <= 0) return {r:0,g:0,b:0};
                 const data = ctx.getImageData(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h)).data;
                 let r=0, g=0, b=0;
@@ -860,9 +867,11 @@
 
             if (this.activeAnomaly && nearestDist < 20 && this.cargo.length < this.stats.maxCargo && this.cooldown <= 0) {
                 
-                // Optical radar hidden in background
-                let diff = 0;
-                let visualFound = false;
+                this.floorColor = this.getAverageColor(ctx, cx - 50, h * 0.85, 100, 40);
+                this.targetColor = this.getAverageColor(ctx, cx - 40, cy - 40, 80, 80);
+                
+                let diff = Math.abs(this.floorColor.r - this.targetColor.r) + Math.abs(this.floorColor.g - this.targetColor.g) + Math.abs(this.floorColor.b - this.targetColor.b);
+                let visualFound = (diff > 60);
 
                 const vW = window.System?.video?.videoWidth || w;
                 const vH = window.System?.video?.videoHeight || h;
@@ -887,13 +896,9 @@
                 if (!this.isExtracting) {
                     ctx.strokeStyle = this.colors.warn; ctx.lineWidth = 3;
                     ctx.beginPath(); ctx.arc(cx, cy, targetR, 0, Math.PI*2); ctx.stroke();
-                    // Crosshair
                     ctx.beginPath(); ctx.moveTo(cx - targetR - 20, cy); ctx.lineTo(cx + targetR + 20, cy); ctx.stroke();
                     ctx.beginPath(); ctx.moveTo(cx, cy - targetR - 20); ctx.lineTo(cx, cy + targetR + 20); ctx.stroke();
 
-                    ctx.fillStyle = this.colors.warn; ctx.font = "bold clamp(16px, 4vw, 24px) 'Chakra Petch'"; ctx.textAlign = "center";
-                    ctx.fillText(`ANOMALIA A ${Math.floor(nearestDist)}m`, cx, cy - targetR - 30);
-                    
                     if (foundBox) {
                         ctx.strokeStyle = "rgba(0, 255, 255, 0.8)"; ctx.lineWidth = 3;
                         ctx.strokeRect(foundBox.x, foundBox.y, foundBox.w, foundBox.h);
@@ -922,7 +927,6 @@
 
                 ctx.fillStyle = `rgba(255, 0, 60, ${Math.abs(Math.sin(this.timeTotal*10))*0.3})`; ctx.fillRect(0, 0, w, h);
                 
-                // Clean UI for extraction at the bottom
                 const uiY = h - 140;
                 ctx.fillStyle = this.colors.danger; ctx.textAlign = "center";
                 ctx.font = "bold clamp(20px, 5vw, 40px) 'Russo One'";
@@ -973,111 +977,161 @@
 
         drawHUD: function(ctx, w, h) {
             let fuelPct = this.displayFuel / this.stats.maxFuel;
+            let isFull = this.cargo.length >= this.stats.maxCargo;
+            let radHead = (this.currentHeading - this.baseHeading) * (Math.PI / 180);
             
-            // HUD Glow effects
             if (this.collectGlow > 0) {
                 ctx.fillStyle = `rgba(0, 255, 255, ${this.collectGlow * 0.3})`;
                 ctx.fillRect(0, 0, w, h);
                 this.collectGlow -= 0.03;
             }
 
-            // Top Panel (Compact and scalable)
-            const topH = 50;
+            // O SEGREDO DO AR: WAYPOINTS HOLOGRÁFICOS 3D
+            const drawARWaypoint = (worldX, worldY, label, color, isBase) => {
+                let dx = worldX - this.vPos.x;
+                let dy = worldY - this.vPos.y;
+                let dist = Math.hypot(dx, dy);
+                
+                let angle = Math.atan2(dy, dx) + radHead + (Math.PI/2);
+                let fwdAngle = angle + Math.PI/2;
+                fwdAngle = Math.atan2(Math.sin(fwdAngle), Math.cos(fwdAngle)); // -PI to PI
+                
+                let fov = Math.PI / 2.5; 
+                
+                if (Math.abs(fwdAngle) < fov) {
+                    // Está na frente da câmera!
+                    let projX = (w/2) + (fwdAngle / fov) * (w/2);
+                    let projY = h/2 + Math.sin(this.timeTotal * 4) * 10;
+                    if (this.isExtracting && !isBase) projY += (Math.random() * 5 - 2.5); // Tremor de captura
+                    
+                    // Desenha o Losango AR
+                    ctx.fillStyle = (this.isExtracting && !isBase) ? this.colors.danger : color;
+                    ctx.beginPath();
+                    ctx.moveTo(projX, projY - 25);
+                    ctx.lineTo(projX + 15, projY);
+                    ctx.lineTo(projX, projY + 25);
+                    ctx.lineTo(projX - 15, projY);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "bold 14px 'Russo One'";
+                    ctx.textAlign = "center";
+                    ctx.shadowColor = "#000"; ctx.shadowBlur = 4;
+                    ctx.fillText(label, projX, projY - 35);
+                    ctx.font = "bold 12px Arial";
+                    ctx.fillText(Math.floor(dist) + "m", projX, projY + 45);
+                    ctx.shadowBlur = 0;
+                } else {
+                    // Fora da tela: Indicador nas bordas!
+                    let edgeX = fwdAngle > 0 ? w - 20 : 20;
+                    let edgeY = h/2;
+                    ctx.fillStyle = isBase ? this.colors.success : color;
+                    ctx.beginPath();
+                    if (fwdAngle > 0) {
+                        ctx.moveTo(edgeX-15, edgeY - 15); ctx.lineTo(edgeX + 10, edgeY); ctx.lineTo(edgeX-15, edgeY + 15);
+                    } else {
+                        ctx.moveTo(edgeX+15, edgeY - 15); ctx.lineTo(edgeX - 10, edgeY); ctx.lineTo(edgeX+15, edgeY + 15);
+                    }
+                    ctx.fill();
+                    ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign = "center";
+                    ctx.fillText(Math.floor(dist) + "m", edgeX + (fwdAngle > 0 ? -25 : 25), edgeY + 5);
+                }
+            };
+
+            // Se a caçamba está cheia, a missão principal é voltar para a base
+            if (isFull || this.state === 'TOW_MODE') {
+                drawARWaypoint(0, 0, "BASE USR", this.colors.success, true);
+            } else {
+                this.anomalies.forEach(a => {
+                    let col = a.type === 'RARE' ? this.colors.rare : this.colors.warn;
+                    let lbl = a.type === 'RARE' ? "RARO" : "SUCATA";
+                    drawARWaypoint(a.x, a.y, lbl, col, false);
+                });
+                ctx.globalAlpha = 0.3;
+                drawARWaypoint(0, 0, "BASE", this.colors.success, true);
+                ctx.globalAlpha = 1.0;
+            }
+
+            // --- HUD SUPERIOR (LIMPO E COMPACTO) ---
+            const topH = 40;
             ctx.fillStyle = this.colors.panel; ctx.fillRect(0, 0, w, topH);
             ctx.strokeStyle = this.colors.main; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, topH); ctx.lineTo(w, topH); ctx.stroke();
 
-            ctx.fillStyle = "#fff"; ctx.font = "bold clamp(10px, 3vw, 14px) 'Chakra Petch'"; ctx.textAlign = "left";
-            ctx.fillText(`LVL ${this.level} | VIDA: ${Math.floor(this.health)}%`, 10, 20);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 12px 'Chakra Petch'"; ctx.textAlign = "left";
+            ctx.fillText(`LVL ${this.level} | VIDA: ${Math.floor(this.health)}%`, 10, 25);
             
-            // Premium Fuel Pulse
             ctx.save();
-            const fuelW = Math.min(150, w/2.5);
+            const fuelW = Math.min(120, w/3);
             if (fuelPct < 0.2) {
                 let pulse = 1 + Math.abs(Math.sin(this.timeTotal * 10)) * 0.05;
-                ctx.translate(10 + fuelW/2, 28 + 5); ctx.scale(pulse, pulse); ctx.translate(-(10 + fuelW/2), -(28 + 5));
+                ctx.translate(140 + fuelW/2, 16 + 5); ctx.scale(pulse, pulse); ctx.translate(-(140 + fuelW/2), -(16 + 5));
             }
-            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 28, fuelW, 12);
+            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(140, 16, fuelW, 10);
             ctx.fillStyle = fuelPct > 0.2 ? this.colors.success : this.colors.danger;
-            ctx.fillRect(10, 28, fuelPct * fuelW, 12);
-            ctx.strokeStyle = "#fff"; ctx.strokeRect(10, 28, fuelW, 12);
-            ctx.fillStyle = "#fff"; ctx.font = "bold 10px Arial"; ctx.fillText("COMBUSTÍVEL", 15, 38);
+            ctx.fillRect(140, 16, fuelPct * fuelW, 10);
+            ctx.strokeStyle = "#fff"; ctx.strokeRect(140, 16, fuelW, 10);
             ctx.restore();
 
-            // Mission Display (Below top bar)
-            if (this.currentMission && this.currentMission.active && this.state !== 'TOW_MODE') {
-                ctx.fillStyle = this.colors.warn; ctx.textAlign = "center";
-                ctx.font = "bold clamp(12px, 3.5vw, 16px) 'Chakra Petch'";
-                ctx.fillText(`MISSÃO: ${this.currentMission.type} (${this.currentMission.progress}/${this.currentMission.goal})`, w/2, topH + 20);
-                if (this.currentMission.type === 'TIMED') {
-                    ctx.fillText(`TEMPO: ${Math.floor(this.currentMission.timer)}s`, w/2, topH + 40);
-                }
+            // --- MENSAGEM CENTRALIZADA E CLARA ---
+            ctx.textAlign = "center";
+            if (isFull) {
+                ctx.fillStyle = (Math.sin(this.timeTotal*5) > 0) ? this.colors.success : "#fff";
+                ctx.font = "bold clamp(16px, 4vw, 24px) 'Russo One'";
+                ctx.fillText("CAÇAMBA CHEIA! SIGA A SETA PARA A BASE!", w/2, topH + 30);
+            } else if (this.currentMission && this.currentMission.active && this.state !== 'TOW_MODE') {
+                ctx.fillStyle = this.colors.warn;
+                ctx.font = "bold clamp(14px, 3.5vw, 18px) 'Chakra Petch'";
+                ctx.fillText(`MISSÃO: ${this.currentMission.type} (${this.currentMission.progress}/${this.currentMission.goal})`, w/2, topH + 25);
             }
 
-            // Radar & Garage Buttons Layout
-            const btnS = Math.min(50, w * 0.15);
-            const rightPad = 15;
-            
-            // Garage Button
-            let distToBase = Math.hypot(this.vPos.x, this.vPos.y);
-            let atBase = distToBase < 30;
-            const garageY = topH + 15;
-            ctx.fillStyle = atBase ? this.colors.success : "rgba(100,100,100,0.5)";
-            ctx.fillRect(w - btnS - rightPad, garageY, btnS, btnS);
-            ctx.strokeStyle = "#fff"; ctx.strokeRect(w - btnS - rightPad, garageY, btnS, btnS);
-            ctx.fillStyle = "#000"; ctx.textAlign="center"; ctx.font = `bold ${btnS*0.5}px Arial`; 
-            ctx.fillText("🔧", w - rightPad - btnS/2, garageY + btnS*0.7);
-
-            // Premium Radar
-            const rR = Math.min(45, w * 0.12);
-            const rCx = w - rR - rightPad; const rCy = garageY + btnS + rR + 15;
+            // --- RADAR E GARAGEM (CANTO DIREITO) ---
+            const rR = Math.min(40, w * 0.1);
+            const rCx = w - rR - 10; const rCy = topH + rR + 10;
             let radarGradient = ctx.createRadialGradient(rCx, rCy, 0, rCx, rCy, rR);
-            radarGradient.addColorStop(0, "rgba(0, 50, 40, 0.9)");
-            radarGradient.addColorStop(1, "rgba(0, 10, 20, 0.7)");
+            radarGradient.addColorStop(0, "rgba(0, 50, 40, 0.9)"); radarGradient.addColorStop(1, "rgba(0, 10, 20, 0.7)");
             ctx.fillStyle = radarGradient; ctx.beginPath(); ctx.arc(rCx, rCy, rR, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = this.currentEvent ? this.colors.danger : this.colors.main; 
-            ctx.lineWidth = 2; ctx.stroke();
+            ctx.strokeStyle = this.colors.main; ctx.lineWidth = 2; ctx.stroke();
 
-            let radHead = (this.currentHeading - this.baseHeading) * (Math.PI / 180);
-            const drawBlip = (wX, wY, col, sz, isBlinking) => {
+            const drawBlip = (wX, wY, col, sz) => {
                 let dx = wX - this.vPos.x; let dy = wY - this.vPos.y;
                 let dist = Math.hypot(dx, dy);
                 if (dist < this.stats.radarRange) {
-                    if (isBlinking && Math.sin(this.timeTotal * 15) > 0) return;
                     let angle = Math.atan2(dy, dx) + radHead + (Math.PI/2); 
                     let sD = (dist / this.stats.radarRange) * rR;
                     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(rCx + Math.cos(angle)*sD, rCy + Math.sin(angle)*sD, sz, 0, Math.PI*2); ctx.fill();
                 }
             };
-            drawBlip(0, 0, this.colors.success, 5, false);
-            this.anomalies.forEach(a => drawBlip(a.x, a.y, a.type==='RARE'?this.colors.rare:this.colors.warn, 3, a.type==='RARE'));
-            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(rCx, rCy - 6); ctx.lineTo(rCx+4, rCy+4); ctx.lineTo(rCx-4, rCy+4); ctx.fill();
+            drawBlip(0, 0, this.colors.success, 5);
+            if (!isFull) this.anomalies.forEach(a => drawBlip(a.x, a.y, a.type==='RARE'?this.colors.rare:this.colors.warn, 3));
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(rCx, rCy - 5); ctx.lineTo(rCx+4, rCy+4); ctx.lineTo(rCx-4, rCy+4); ctx.fill();
 
-            // Bottom Panel
-            const botH = 60;
-            const botY = h - botH;
+            // Botão da Garagem
+            let distToBase = Math.hypot(this.vPos.x, this.vPos.y);
+            let atBase = distToBase < 30;
+            const btnW = 100; const btnH = 35;
+            ctx.fillStyle = atBase ? this.colors.success : "rgba(100,100,100,0.5)";
+            ctx.fillRect(w - btnW - 10, rCy + rR + 10, btnW, btnH);
+            ctx.strokeStyle = "#fff"; ctx.strokeRect(w - btnW - 10, rCy + rR + 10, btnW, btnH);
+            ctx.fillStyle = "#000"; ctx.textAlign="center"; ctx.font = "bold 12px 'Russo One'"; 
+            ctx.fillText(atBase ? "ENTRAR OFICINA" : "BASE LONGE", w - 10 - btnW/2, rCy + rR + 32);
+
+            // --- PAINEL INFERIOR E ACELERADOR ---
+            const botH = 50; const botY = h - botH;
             ctx.fillStyle = this.colors.panel; ctx.fillRect(0, botY, w, botH);
             ctx.strokeStyle = this.colors.main; ctx.beginPath(); ctx.moveTo(0, botY); ctx.lineTo(w, botY); ctx.stroke();
 
-            // Accelerate Button (Above bottom panel)
-            const accR = Math.min(45, w * 0.12);
-            const accX = 15 + accR; const accY = botY - accR - 15;
+            const accR = Math.min(40, w * 0.12);
             ctx.fillStyle = this.manualAccelerate ? "rgba(0,255,255,0.6)" : "rgba(0,255,255,0.2)";
-            ctx.beginPath(); ctx.arc(accX, accY, accR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign="center"; ctx.fillText("GAS", accX, accY + 4);
+            ctx.beginPath(); ctx.arc(10 + accR, botY - accR - 10, accR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign="center"; ctx.fillText("GAS", 10 + accR, botY - accR - 6);
 
-            // Bottom Text Info
-            ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.font = "bold clamp(14px, 3.5vw, 18px) 'Chakra Petch'";
-            ctx.fillText(`CARGA: ${this.cargo.length}/${this.stats.maxCargo}`, 15, h - 25);
-            ctx.fillStyle = this.colors.success; ctx.font = "bold clamp(18px, 5vw, 24px) 'Russo One'";
-            ctx.fillText(`R$ ${Math.floor(this.displayMoney).toLocaleString()}`, w/2 - 20, h - 22);
-
-            ctx.textAlign = "right"; ctx.fillStyle = this.colors.main; ctx.font = "bold clamp(12px, 3vw, 16px) 'Chakra Petch'";
-            ctx.fillText(`BASE: ${Math.floor(distToBase)}m`, w - 15, h - 25);
+            ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.font = "bold 14px 'Chakra Petch'";
+            ctx.fillText(`CARGA: ${this.cargo.length}/${this.stats.maxCargo}`, 20, h - 20);
+            ctx.fillStyle = this.colors.success; ctx.font = "bold 18px 'Russo One'";
+            ctx.fillText(`R$ ${Math.floor(this.displayMoney).toLocaleString()}`, w/2 - 40, h - 18);
             
-            if (this.state === 'TOW_MODE') {
-                ctx.textAlign="center"; ctx.fillStyle = this.colors.danger; ctx.font = "bold clamp(20px, 5vw, 30px) 'Russo One'";
-                ctx.fillText("MODO REBOQUE!", w/2, h/2 - 20);
-            }
+            ctx.textAlign = "right"; ctx.fillStyle = this.colors.main; ctx.font = "bold 14px 'Chakra Petch'";
+            ctx.fillText(`BASE: ${Math.floor(distToBase)}m`, w - 20, h - 20);
         },
 
         deliverCargo: function() {
@@ -1135,6 +1189,8 @@
             }
 
             if (actionId === 'EXIT') {
+                // Ao clicar em sair (fallback ou gesto), aciona o Switch IMEDIATAMENTE
+                this.pendingCamPromise = CameraManager.startRearCamera();
                 this.changeState('EXIT_BASE_TRANSITION');
             }
         },
@@ -1150,8 +1206,8 @@
         drawOverlay: function(ctx, w, h, title, sub) {
             ctx.fillStyle = "rgba(0, 5, 10, 0.95)"; ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = this.colors.main; ctx.textAlign = "center";
-            ctx.font = "bold clamp(24px, 6vw, 50px) 'Russo One'"; ctx.fillText(title, w/2, h/2 - 20);
-            ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.fillText(sub, w/2, h/2 + 30);
+            ctx.font = "bold clamp(30px, 6vw, 60px) 'Russo One'"; ctx.fillText(title, w/2, h/2 - 20);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 16px Arial"; ctx.fillText(sub, w/2, h/2 + 30);
         },
 
         spawnParticles: function(x, y, count, color) {
@@ -1190,7 +1246,7 @@
             window.System.registerGame('ar_truck_sim', 'AR Ops Premium', '🚀', Game, {
                 camera: 'environment',
                 phases: [
-                    { id: 'f1', name: 'MISSÃO AR GLOBAL', desc: 'Gerencie a frota AR Híbrida via HUD Premium.', reqLvl: 1 }
+                    { id: 'f1', name: 'MISSÃO AR GLOBAL', desc: 'Siga as Setas AR para recolher o material.', reqLvl: 1 }
                 ]
             });
             clearInterval(regLoop);
