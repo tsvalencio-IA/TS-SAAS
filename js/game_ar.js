@@ -1,6 +1,6 @@
 // =============================================================================
-// AR TOY TRUCK SIMULATOR: MASTER ARCHITECT EDITION (V15 - PREMIUM FEEL)
-// ENGINE AR HÍBRIDA PROFISSIONAL: FÍSICA REAL, FEEDBACK AAA, MISSÕES E UPGRADES
+// AR TOY TRUCK SIMULATOR: MASTER ARCHITECT EDITION (V16 - RESPONSIVE UI FIX)
+// ENGINE AR HÍBRIDA PROFISSIONAL: INTERFACE LIMPA, RESPONSIVA E OTIMIZADA
 // =============================================================================
 
 (function() {
@@ -96,13 +96,13 @@
         eventCallback: null,
         
         buttons: [
-            { id: 'REFUEL', label: 'ABASTECER', x: 0, y: 0, w: 180, h: 60, color: '#f39c12' },
-            { id: 'REPAIR', label: 'REPARAR', x: 0, y: 0, w: 180, h: 60, color: '#e74c3c' },
-            { id: 'UPG_ENGINE', label: 'UPG MOTOR', x: 0, y: 0, w: 180, h: 60, color: '#3498db' },
-            { id: 'UPG_TANK', label: 'UPG TANQUE', x: 0, y: 0, w: 180, h: 60, color: '#9b59b6' },
-            { id: 'UPG_RADAR', label: 'UPG RADAR', x: 0, y: 0, w: 180, h: 60, color: '#00ffff' },
-            { id: 'UPG_TRUCK', label: 'UPG CHASSI', x: 0, y: 0, w: 180, h: 60, color: '#f1c40f' },
-            { id: 'EXIT', label: 'SAIR DA BASE', x: 0, y: 0, w: 300, h: 60, color: '#00ff66' }
+            { id: 'REFUEL', label: 'ABASTECER', x: 0, y: 0, w: 160, h: 60, color: '#f39c12' },
+            { id: 'REPAIR', label: 'REPARAR', x: 0, y: 0, w: 160, h: 60, color: '#e74c3c' },
+            { id: 'UPG_ENGINE', label: 'UPG MOTOR', x: 0, y: 0, w: 160, h: 60, color: '#3498db' },
+            { id: 'UPG_TANK', label: 'UPG TANQUE', x: 0, y: 0, w: 160, h: 60, color: '#9b59b6' },
+            { id: 'UPG_RADAR', label: 'UPG RADAR', x: 0, y: 0, w: 160, h: 60, color: '#00ffff' },
+            { id: 'UPG_TRUCK', label: 'UPG CHASSI', x: 0, y: 0, w: 160, h: 60, color: '#f1c40f' },
+            { id: 'EXIT', label: 'SAIR DA BASE', x: 0, y: 0, w: 260, h: 60, color: '#00ff66' }
         ],
 
         init: async function(callback) {
@@ -166,23 +166,26 @@
 
             const cx = w / 2; const cy = h / 2;
             
-            this.buttons[0].x = cx - 290; this.buttons[0].y = cy - 100;
-            this.buttons[1].x = cx - 90;  this.buttons[1].y = cy - 100;
-            this.buttons[2].x = cx + 110; this.buttons[2].y = cy - 100;
-            this.buttons[3].x = cx - 290; this.buttons[3].y = cy - 10;
-            this.buttons[4].x = cx - 90;  this.buttons[4].y = cy - 10;
-            this.buttons[5].x = cx + 110; this.buttons[5].y = cy - 10;
-            this.buttons[6].x = cx - 150; this.buttons[6].y = cy + 100;
+            // Layout adaptativo para mobile e desktop
+            const gap = 10;
+            const btnW = 150;
+            this.buttons[0].x = cx - btnW - gap; this.buttons[0].y = cy - 80;  this.buttons[0].w = btnW;
+            this.buttons[1].x = cx + gap;        this.buttons[1].y = cy - 80;  this.buttons[1].w = btnW;
+            this.buttons[2].x = cx - btnW - gap; this.buttons[2].y = cy - 10;  this.buttons[2].w = btnW;
+            this.buttons[3].x = cx + gap;        this.buttons[3].y = cy - 10;  this.buttons[3].w = btnW;
+            this.buttons[4].x = cx - btnW - gap; this.buttons[4].y = cy + 60;  this.buttons[4].w = btnW;
+            this.buttons[5].x = cx + gap;        this.buttons[5].y = cy + 60;  this.buttons[5].w = btnW;
+            this.buttons[6].x = cx - 130;        this.buttons[6].y = cy + 140; this.buttons[6].w = 260;
 
-            ctx.fillStyle = "rgba(0, 15, 30, 0.85)"; ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = "rgba(0, 15, 30, 0.9)"; ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = "#00ffff"; ctx.textAlign = "center";
-            ctx.font = "bold clamp(30px, 5vw, 50px) 'Russo One'";
-            ctx.fillText("GARAGEM HOLOGRÁFICA", cx, cy - 180);
+            ctx.font = "bold clamp(24px, 6vw, 40px) 'Russo One'";
+            ctx.fillText("GARAGEM HOLOGRÁFICA", cx, Math.max(40, cy - 160));
             
-            ctx.fillStyle = "#00ff66"; ctx.font = "bold 24px 'Chakra Petch'";
-            ctx.fillText(`SALDO: R$ ${Math.floor(gameState.displayMoney).toLocaleString()}`, cx, cy - 140);
-            ctx.fillStyle = "#fff"; ctx.font = "16px Arial";
-            ctx.fillText(`VIDA: ${Math.floor(gameState.health)}/100 | COMB: ${Math.floor(gameState.displayFuel)}/${gameState.stats.maxFuel}`, cx, cy - 115);
+            ctx.fillStyle = "#00ff66"; ctx.font = "bold clamp(18px, 4vw, 24px) 'Chakra Petch'";
+            ctx.fillText(`SALDO: R$ ${Math.floor(gameState.displayMoney).toLocaleString()}`, cx, Math.max(70, cy - 130));
+            ctx.fillStyle = "#fff"; ctx.font = "clamp(12px, 3vw, 16px) Arial";
+            ctx.fillText(`VIDA: ${Math.floor(gameState.health)}/100 | COMB: ${Math.floor(gameState.displayFuel)}/${gameState.stats.maxFuel}`, cx, Math.max(90, cy - 110));
 
             let currentlyHovering = null;
 
@@ -201,7 +204,7 @@
                 ctx.strokeStyle = btn.color; ctx.lineWidth = isHover ? 4 : 2;
                 ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
                 
-                ctx.fillStyle = "#fff"; ctx.font = "bold 16px 'Chakra Petch'"; ctx.textAlign = "center";
+                ctx.fillStyle = "#fff"; ctx.font = "bold 14px 'Chakra Petch'"; ctx.textAlign = "center";
                 ctx.fillText(btn.label, btn.x + btn.w/2, btn.y + btn.h/2 + 2);
                 
                 ctx.font = "12px Arial"; ctx.fillStyle = btn.color;
@@ -241,8 +244,8 @@
                     ctx.stroke();
                 }
             } else {
-                ctx.fillStyle = "#fff"; ctx.font = "16px Arial"; ctx.textAlign = "center";
-                ctx.fillText("MOSTRE A MÃO PARA A CÂMERA PARA CONTROLAR", cx, h - 30);
+                ctx.fillStyle = "#fff"; ctx.font = "14px Arial"; ctx.textAlign = "center";
+                ctx.fillText("MOSTRE A MÃO PARA A CÂMERA PARA CONTROLAR", cx, h - 20);
             }
         },
 
@@ -333,12 +336,12 @@
             danger: '#ff003c', 
             success: '#00ff66', 
             warn: '#f1c40f', 
-            panel: 'rgba(0,15,30,0.8)', 
+            panel: 'rgba(0,15,30,0.85)', 
             rare: '#ff00ff' 
         },
 
         init: function() {
-            this.state = 'INIT'; // Prevent immediate return in changeState
+            this.state = 'INIT'; 
             this.lastTime = performance.now();
             this.timeTotal = 0;
             this.score = 0;
@@ -494,7 +497,10 @@
                 }
                 else if (this.state === 'PLAY_REAR_AR' || this.state === 'TOW_MODE') {
                     let distToBase = Math.hypot(this.vPos.x, this.vPos.y);
-                    if (y > 70 && y < 120 && x > w - 70 && x < w - 20) {
+                    
+                    // Radar/Garage Hitbox (Top Right)
+                    const btnS = Math.min(50, w * 0.15);
+                    if (y > 60 && y < 60 + btnS && x > w - btnS - 10 && x < w - 10) {
                         if (distToBase < 30) {
                             this.changeState('ENTER_BASE_TRANSITION');
                         } else {
@@ -502,7 +508,10 @@
                         }
                         return;
                     }
-                    if (x < 150 && y > h - 150 && this.state !== 'TOW_MODE') {
+                    
+                    // Accelerate Hitbox (Bottom Left)
+                    const accR = Math.min(50, w * 0.15);
+                    if (x < 20 + accR*2 && y > h - 80 - accR*2 && this.state !== 'TOW_MODE') {
                         this.manualAccelerate = true;
                     }
                 }
@@ -646,10 +655,10 @@
 
             switch (this.state) {
                 case 'BOOT':
-                    this.drawOverlay(ctx, w, h, "INICIALIZANDO SISTEMAS", "Carregando Engine Premium...");
+                    this.drawOverlay(ctx, w, h, "INICIALIZANDO", "Carregando Engine Premium...");
                     break;
                 case 'CALIBRATION':
-                    this.drawOverlay(ctx, w, h, "CALIBRAR PONTO ZERO", "Aponte o caminhão para a pista e TOQUE NA TELA");
+                    this.drawOverlay(ctx, w, h, "PONTO ZERO", "Aponte o caminhão para a pista e TOQUE");
                     break;
                 case 'PLAY_REAR_AR':
                 case 'TOW_MODE':
@@ -681,7 +690,7 @@
                     this.processTransition(ctx, w, h, dt, 'startRearCamera', 'PLAY_REAR_AR');
                     break;
                 case 'GAME_OVER':
-                    this.drawOverlay(ctx, w, h, "FIM DE JOGO", "Calculando pontuação final...");
+                    this.drawOverlay(ctx, w, h, "FIM DE JOGO", "Calculando pontuação...");
                     break;
             }
 
@@ -823,6 +832,8 @@
 
         getAverageColor: function(ctx, x, y, w, h) {
             try {
+                // Ensure dimensions are positive to prevent error
+                if (w <= 0 || h <= 0) return {r:0,g:0,b:0};
                 const data = ctx.getImageData(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h)).data;
                 let r=0, g=0, b=0;
                 for (let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
@@ -849,30 +860,48 @@
 
             if (this.activeAnomaly && nearestDist < 20 && this.cargo.length < this.stats.maxCargo && this.cooldown <= 0) {
                 
-                this.floorColor = this.getAverageColor(ctx, cx - 50, h * 0.85, 100, 40);
-                this.targetColor = this.getAverageColor(ctx, cx - 40, cy - 40, 80, 80);
-                
-                let diff = Math.abs(this.floorColor.r - this.targetColor.r) + Math.abs(this.floorColor.g - this.targetColor.g) + Math.abs(this.floorColor.b - this.targetColor.b);
-                let visualFound = (diff > 60);
+                // Optical radar hidden in background
+                let diff = 0;
+                let visualFound = false;
 
                 const vW = window.System?.video?.videoWidth || w;
                 const vH = window.System?.video?.videoHeight || h;
                 const sX = w / vW;
                 const sY = h / vH;
                 
+                let foundBox = null;
+
                 this.detectedItems.forEach(item => {
                     if (['person', 'bed', 'sofa'].includes(item.class) || item.score < 0.2) return;
                     const bW = item.bbox[2]*sX; const bH = item.bbox[3]*sY;
                     if (bW > w * 0.8) return;
                     const cX = (item.bbox[0]*sX) + bW/2; const cY = (item.bbox[1]*sY) + bH/2;
-                    if (Math.hypot(cX - cx, cY - cy) < 200) visualFound = true;
+                    if (Math.hypot(cX - cx, cY - cy) < Math.min(w, h) * 0.4) {
+                        visualFound = true;
+                        foundBox = { x: item.bbox[0]*sX, y: item.bbox[1]*sY, w: bW, h: bH, label: item.class };
+                    }
                 });
 
+                const targetR = Math.min(w, h) * 0.35;
+
                 if (!this.isExtracting) {
-                    ctx.strokeStyle = this.colors.warn; ctx.lineWidth = 4;
-                    ctx.strokeRect(cx - 150, cy - 150, 300, 300);
-                    ctx.fillStyle = this.colors.warn; ctx.font = "bold 20px 'Chakra Petch'"; ctx.textAlign = "center";
-                    ctx.fillText(`ANOMALIA A ${Math.floor(nearestDist)}m`, cx, cy - 160);
+                    ctx.strokeStyle = this.colors.warn; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(cx, cy, targetR, 0, Math.PI*2); ctx.stroke();
+                    // Crosshair
+                    ctx.beginPath(); ctx.moveTo(cx - targetR - 20, cy); ctx.lineTo(cx + targetR + 20, cy); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(cx, cy - targetR - 20); ctx.lineTo(cx, cy + targetR + 20); ctx.stroke();
+
+                    ctx.fillStyle = this.colors.warn; ctx.font = "bold clamp(16px, 4vw, 24px) 'Chakra Petch'"; ctx.textAlign = "center";
+                    ctx.fillText(`ANOMALIA A ${Math.floor(nearestDist)}m`, cx, cy - targetR - 30);
+                    
+                    if (foundBox) {
+                        ctx.strokeStyle = "rgba(0, 255, 255, 0.8)"; ctx.lineWidth = 3;
+                        ctx.strokeRect(foundBox.x, foundBox.y, foundBox.w, foundBox.h);
+                        ctx.fillStyle = "rgba(0,0,0,0.7)";
+                        ctx.fillRect(foundBox.x, foundBox.y - 25, 100, 25);
+                        ctx.fillStyle = "#0ff"; ctx.textAlign="left"; ctx.font="14px Arial";
+                        ctx.fillText(foundBox.label.toUpperCase(), foundBox.x + 5, foundBox.y - 8);
+                    }
                 }
 
                 if (visualFound && !this.isExtracting) {
@@ -892,20 +921,24 @@
                 }
 
                 ctx.fillStyle = `rgba(255, 0, 60, ${Math.abs(Math.sin(this.timeTotal*10))*0.3})`; ctx.fillRect(0, 0, w, h);
+                
+                // Clean UI for extraction at the bottom
+                const uiY = h - 140;
                 ctx.fillStyle = this.colors.danger; ctx.textAlign = "center";
-                ctx.font = "bold clamp(25px, 5vw, 50px) 'Russo One'";
-                ctx.fillText("TRAVADO! ACELERE!", cx, cy - 130);
+                ctx.font = "bold clamp(20px, 5vw, 40px) 'Russo One'";
+                ctx.fillText("TRAVANDO ALVO! ACELERE!", cx, uiY - 15);
 
-                ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(w*0.2, cy - 100, w*0.6, 20);
-                ctx.fillStyle = this.colors.danger; ctx.fillRect(w*0.2, cy - 100, (this.extractProgress/100)*(w*0.6), 20);
-                ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(w*0.2, cy - 100, w*0.6, 20);
+                ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(w*0.1, uiY, w*0.8, 20);
+                ctx.fillStyle = this.colors.danger; ctx.fillRect(w*0.1, uiY, (this.extractProgress/100)*(w*0.8), 20);
+                ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(w*0.1, uiY, w*0.8, 20);
 
-                ctx.strokeStyle = `rgba(0, 255, 255, ${0.5 + Math.sin(this.timeTotal*20)*0.5})`; ctx.lineWidth = 20;
-                ctx.beginPath(); ctx.moveTo(cx, h); ctx.lineTo(cx, cy); ctx.stroke();
+                const targetR = Math.min(w, h) * 0.35;
+                ctx.strokeStyle = `rgba(0, 255, 255, ${0.5 + Math.sin(this.timeTotal*20)*0.5})`; ctx.lineWidth = 10;
+                ctx.beginPath(); ctx.moveTo(cx, uiY); ctx.lineTo(cx, cy); ctx.stroke();
 
-                const ringSize = Math.max(50, 250 - this.extractProgress);
+                const ringSize = Math.max(20, targetR * (1 - this.extractProgress/150));
                 ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.timeTotal * 5);
-                ctx.strokeStyle = this.colors.danger; ctx.lineWidth = 8; ctx.setLineDash([20, 15]);
+                ctx.strokeStyle = this.colors.danger; ctx.lineWidth = 6; ctx.setLineDash([20, 15]);
                 ctx.beginPath(); ctx.arc(0, 0, ringSize, 0, Math.PI*2); ctx.stroke(); ctx.restore();
 
                 if (this.extractProgress >= 100) {
@@ -948,28 +981,55 @@
                 this.collectGlow -= 0.03;
             }
 
-            ctx.fillStyle = this.colors.panel; ctx.fillRect(0, 0, w, 60);
-            ctx.strokeStyle = this.colors.main; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 60); ctx.lineTo(w, 60); ctx.stroke();
+            // Top Panel (Compact and scalable)
+            const topH = 50;
+            ctx.fillStyle = this.colors.panel; ctx.fillRect(0, 0, w, topH);
+            ctx.strokeStyle = this.colors.main; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, topH); ctx.lineTo(w, topH); ctx.stroke();
 
-            ctx.fillStyle = "#fff"; ctx.font = "bold 14px 'Chakra Petch'"; ctx.textAlign = "left";
-            ctx.fillText(`LVL ${this.level} | VIDA: ${Math.floor(this.health)}%`, 20, 25);
+            ctx.fillStyle = "#fff"; ctx.font = "bold clamp(10px, 3vw, 14px) 'Chakra Petch'"; ctx.textAlign = "left";
+            ctx.fillText(`LVL ${this.level} | VIDA: ${Math.floor(this.health)}%`, 10, 20);
             
             // Premium Fuel Pulse
             ctx.save();
+            const fuelW = Math.min(150, w/2.5);
             if (fuelPct < 0.2) {
                 let pulse = 1 + Math.abs(Math.sin(this.timeTotal * 10)) * 0.05;
-                ctx.translate(20 + 75, 35 + 7.5); ctx.scale(pulse, pulse); ctx.translate(-(20 + 75), -(35 + 7.5));
-                ctx.fillStyle = "rgba(255, 0, 0, 0.2)"; ctx.fillRect(0,0,w,h);
+                ctx.translate(10 + fuelW/2, 28 + 5); ctx.scale(pulse, pulse); ctx.translate(-(10 + fuelW/2), -(28 + 5));
             }
-            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(20, 35, 150, 15);
+            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 28, fuelW, 12);
             ctx.fillStyle = fuelPct > 0.2 ? this.colors.success : this.colors.danger;
-            ctx.fillRect(20, 35, fuelPct * 150, 15);
-            ctx.strokeStyle = "#fff"; ctx.strokeRect(20, 35, 150, 15);
-            ctx.fillStyle = "#fff"; ctx.fillText("COMBUSTÍVEL", 25, 47);
+            ctx.fillRect(10, 28, fuelPct * fuelW, 12);
+            ctx.strokeStyle = "#fff"; ctx.strokeRect(10, 28, fuelW, 12);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 10px Arial"; ctx.fillText("COMBUSTÍVEL", 15, 38);
             ctx.restore();
 
+            // Mission Display (Below top bar)
+            if (this.currentMission && this.currentMission.active && this.state !== 'TOW_MODE') {
+                ctx.fillStyle = this.colors.warn; ctx.textAlign = "center";
+                ctx.font = "bold clamp(12px, 3.5vw, 16px) 'Chakra Petch'";
+                ctx.fillText(`MISSÃO: ${this.currentMission.type} (${this.currentMission.progress}/${this.currentMission.goal})`, w/2, topH + 20);
+                if (this.currentMission.type === 'TIMED') {
+                    ctx.fillText(`TEMPO: ${Math.floor(this.currentMission.timer)}s`, w/2, topH + 40);
+                }
+            }
+
+            // Radar & Garage Buttons Layout
+            const btnS = Math.min(50, w * 0.15);
+            const rightPad = 15;
+            
+            // Garage Button
+            let distToBase = Math.hypot(this.vPos.x, this.vPos.y);
+            let atBase = distToBase < 30;
+            const garageY = topH + 15;
+            ctx.fillStyle = atBase ? this.colors.success : "rgba(100,100,100,0.5)";
+            ctx.fillRect(w - btnS - rightPad, garageY, btnS, btnS);
+            ctx.strokeStyle = "#fff"; ctx.strokeRect(w - btnS - rightPad, garageY, btnS, btnS);
+            ctx.fillStyle = "#000"; ctx.textAlign="center"; ctx.font = `bold ${btnS*0.5}px Arial`; 
+            ctx.fillText("🔧", w - rightPad - btnS/2, garageY + btnS*0.7);
+
             // Premium Radar
-            const rCx = w - 80; const rCy = 160; const rR = 60;
+            const rR = Math.min(45, w * 0.12);
+            const rCx = w - rR - rightPad; const rCy = garageY + btnS + rR + 15;
             let radarGradient = ctx.createRadialGradient(rCx, rCy, 0, rCx, rCy, rR);
             radarGradient.addColorStop(0, "rgba(0, 50, 40, 0.9)");
             radarGradient.addColorStop(1, "rgba(0, 10, 20, 0.7)");
@@ -988,45 +1048,35 @@
                     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(rCx + Math.cos(angle)*sD, rCy + Math.sin(angle)*sD, sz, 0, Math.PI*2); ctx.fill();
                 }
             };
-            drawBlip(0, 0, this.colors.success, 6, false);
-            this.anomalies.forEach(a => drawBlip(a.x, a.y, a.type==='RARE'?this.colors.rare:this.colors.warn, 4, a.type==='RARE'));
-            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(rCx, rCy - 8); ctx.lineTo(rCx+5, rCy+5); ctx.lineTo(rCx-5, rCy+5); ctx.fill();
+            drawBlip(0, 0, this.colors.success, 5, false);
+            this.anomalies.forEach(a => drawBlip(a.x, a.y, a.type==='RARE'?this.colors.rare:this.colors.warn, 3, a.type==='RARE'));
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(rCx, rCy - 6); ctx.lineTo(rCx+4, rCy+4); ctx.lineTo(rCx-4, rCy+4); ctx.fill();
 
-            // Mission Display
-            if (this.currentMission && this.currentMission.active && this.state !== 'TOW_MODE') {
-                ctx.fillStyle = this.colors.warn; ctx.textAlign = "center";
-                ctx.font = "bold 16px 'Chakra Petch'";
-                ctx.fillText(`MISSÃO: ${this.currentMission.type} (${this.currentMission.progress}/${this.currentMission.goal})`, w/2, 35);
-                if (this.currentMission.type === 'TIMED') {
-                    ctx.fillText(`TEMPO: ${Math.floor(this.currentMission.timer)}s`, w/2, 55);
-                }
-            }
+            // Bottom Panel
+            const botH = 60;
+            const botY = h - botH;
+            ctx.fillStyle = this.colors.panel; ctx.fillRect(0, botY, w, botH);
+            ctx.strokeStyle = this.colors.main; ctx.beginPath(); ctx.moveTo(0, botY); ctx.lineTo(w, botY); ctx.stroke();
 
-            let distToBase = Math.hypot(this.vPos.x, this.vPos.y);
-            let atBase = distToBase < 30;
-            ctx.fillStyle = atBase ? this.colors.success : "rgba(100,100,100,0.5)";
-            ctx.fillRect(w - 70, 70, 50, 50);
-            ctx.strokeStyle = "#fff"; ctx.strokeRect(w - 70, 70, 50, 50);
-            ctx.fillStyle = "#000"; ctx.textAlign="center"; ctx.font = "24px Arial"; ctx.fillText("🔧", w - 45, 102);
-
+            // Accelerate Button (Above bottom panel)
+            const accR = Math.min(45, w * 0.12);
+            const accX = 15 + accR; const accY = botY - accR - 15;
             ctx.fillStyle = this.manualAccelerate ? "rgba(0,255,255,0.6)" : "rgba(0,255,255,0.2)";
-            ctx.beginPath(); ctx.arc(70, h - 70, 50, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.fillText("ACELERAR", 70, h - 65);
+            ctx.beginPath(); ctx.arc(accX, accY, accR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign="center"; ctx.fillText("GAS", accX, accY + 4);
 
-            ctx.fillStyle = this.colors.panel; ctx.fillRect(0, h - 60, w, 60);
-            ctx.strokeStyle = this.colors.main; ctx.beginPath(); ctx.moveTo(0, h - 60); ctx.lineTo(w, h - 60); ctx.stroke();
-            
-            ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.font = "bold 18px 'Chakra Petch'";
-            ctx.fillText(`CAÇAMBA: ${this.cargo.length}/${this.stats.maxCargo}`, 140, h - 25);
-            ctx.fillStyle = this.colors.success; ctx.font = "bold 24px 'Russo One'";
-            ctx.fillText(`R$ ${Math.floor(this.displayMoney).toLocaleString()}`, 300, h - 22);
+            // Bottom Text Info
+            ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.font = "bold clamp(14px, 3.5vw, 18px) 'Chakra Petch'";
+            ctx.fillText(`CARGA: ${this.cargo.length}/${this.stats.maxCargo}`, 15, h - 25);
+            ctx.fillStyle = this.colors.success; ctx.font = "bold clamp(18px, 5vw, 24px) 'Russo One'";
+            ctx.fillText(`R$ ${Math.floor(this.displayMoney).toLocaleString()}`, w/2 - 20, h - 22);
 
-            ctx.textAlign = "right"; ctx.fillStyle = this.colors.main;
-            ctx.fillText(`DIST. BASE: ${Math.floor(distToBase)}m`, w - 20, h - 25);
+            ctx.textAlign = "right"; ctx.fillStyle = this.colors.main; ctx.font = "bold clamp(12px, 3vw, 16px) 'Chakra Petch'";
+            ctx.fillText(`BASE: ${Math.floor(distToBase)}m`, w - 15, h - 25);
             
             if (this.state === 'TOW_MODE') {
-                ctx.textAlign="center"; ctx.fillStyle = this.colors.danger; ctx.font = "bold 30px 'Russo One'";
-                ctx.fillText("MODO REBOQUE: VOLTE À BASE!", w/2, h/2);
+                ctx.textAlign="center"; ctx.fillStyle = this.colors.danger; ctx.font = "bold clamp(20px, 5vw, 30px) 'Russo One'";
+                ctx.fillText("MODO REBOQUE!", w/2, h/2 - 20);
             }
         },
 
@@ -1100,8 +1150,8 @@
         drawOverlay: function(ctx, w, h, title, sub) {
             ctx.fillStyle = "rgba(0, 5, 10, 0.95)"; ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = this.colors.main; ctx.textAlign = "center";
-            ctx.font = "bold clamp(30px, 6vw, 60px) 'Russo One'"; ctx.fillText(title, w/2, h/2 - 20);
-            ctx.fillStyle = "#fff"; ctx.font = "bold 16px Arial"; ctx.fillText(sub, w/2, h/2 + 30);
+            ctx.font = "bold clamp(24px, 6vw, 50px) 'Russo One'"; ctx.fillText(title, w/2, h/2 - 20);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.fillText(sub, w/2, h/2 + 30);
         },
 
         spawnParticles: function(x, y, count, color) {
