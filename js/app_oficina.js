@@ -1,31 +1,27 @@
 window.app = {};
 
 // =====================================================================
-// 1. NUVEM E SESSÃO DA OFICINA
+// 1. NUVEM E SESSÃO DA OFICINA (REFATORADO COM CORE.JS)
 // =====================================================================
-app.firebaseConfig = {
-    apiKey: "AIzaSyBqIuCsHHuy_f-mBWV4JBkbyOorXpqQvqg",
-    authDomain: "hub-thiaguinho.firebaseapp.com",
-    projectId: "hub-thiaguinho",
-    storageBucket: "hub-thiaguinho.firebasestorage.app",
-    messagingSenderId: "453508098543",
-    appId: "1:453508098543:web:305f4d48edd9be40bd6e1a"
-};
 
-if (!firebase.apps.length) firebase.initializeApp(app.firebaseConfig);
-app.db = firebase.firestore();
+// A inicialização e chaves do Firebase agora vivem no core.js por segurança.
+app.db = firebase.firestore(); // Mantemos a referência nativa para uso em transações "Batch" em lote
 
+// Recupera chaves de APIs e permissões dinâmicas da sessão
 app.CLOUDINARY_CLOUD_NAME = sessionStorage.getItem('t_cloudName');
 app.CLOUDINARY_UPLOAD_PRESET = sessionStorage.getItem('t_cloudPreset');
 app.API_KEY_GEMINI = sessionStorage.getItem('t_gemini');
-app.t_id = sessionStorage.getItem('t_id');
+
+// Ponte Segura com a Camada de Organização (Core)
+app.t_id = Core.empresaId || sessionStorage.getItem('t_id'); 
 app.t_nome = sessionStorage.getItem('t_nome');
 app.t_role = sessionStorage.getItem('t_role');
 app.user_nome = sessionStorage.getItem('f_nome');
 app.user_comissao = parseFloat(sessionStorage.getItem('f_comissao') || 0);
 app.t_mods = JSON.parse(sessionStorage.getItem('t_mods') || '{}');
 
-if (!app.t_id) window.location.replace('index.html');
+// Trava Central
+if (!Core._verificarSeguranca()) window.location.replace('index.html');
 
 // Bancos Locais em Memória (Rápida Performance)
 app.bancoOSCompleto = [];
@@ -60,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const linkInicio = document.querySelector('.nav-sidebar .nav-link');
     if(linkInicio) app.mostrarTela('tela_dashboard', 'Inteligência Automotiva', linkInicio);
     
-    // 3. Liga os motores do banco de dados
+    // 3. Liga os motores do banco de dados (AGORA PROTEGIDOS PELO CORE)
     app.iniciarEscutaOS();
     app.iniciarEscutaCrm();
     app.iniciarEscutaEstoque();
@@ -69,9 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if(app.t_role === 'admin') {
         app.iniciarEscutaFinanceiro();
         app.iniciarEscutaLixeira();
-        app.iniciarEscutaEquipe();
+        // app.iniciarEscutaEquipe() é tratado no HTML original, mas já tem suporte nativo
     }
-    app.configurarCloudinary();
+    if (typeof app.configurarCloudinary === "function") app.configurarCloudinary();
 });
 
 // =====================================================================
@@ -128,7 +124,7 @@ app.showToast = function(msg, type='success') {
     setTimeout(() => { if(t.firstChild) t.firstChild.remove() }, 5000);
 };
 
-app.sair = function() { sessionStorage.clear(); window.location.href = 'index.html'; };
+app.sair = function() { Core.logout(); }; // Usa o logout centralizado
 
 app.mostrarTela = function(id, titulo, btn) {
     document.querySelectorAll('.modulo-tela').forEach(t => t.style.display = 'none');
@@ -184,7 +180,8 @@ app.buscarCEP = function(cep) {
 };
 
 app.iniciarEscutaCrm = function() {
-    app.db.collection('clientes_base').where('tenantId', '==', app.t_id).onSnapshot(snap => {
+    // Utilizando o Core para ler dados isolados da empresa
+    Core.buscarDados('clientes_base', snap => {
         app.bancoCrm = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const tb = document.getElementById('tabelaCrmCorpo');
         if(tb) {
@@ -219,15 +216,20 @@ app.salvarClienteCRM = async function(e) {
     
     if(doc.length === 11 && !app.validarCPF(doc)) { app.showToast("Impossível salvar. CPF inválido.", "error"); return; }
     
-    const p = { tenantId: app.t_id, nome: document.getElementById('c_nome').value, telefone: document.getElementById('c_tel').value, documento: doc, email: document.getElementById('c_email').value, cep: document.getElementById('c_cep').value, rua: document.getElementById('c_rua').value, num: document.getElementById('c_num').value, bairro: document.getElementById('c_bairro').value, cidade: document.getElementById('c_cidade').value, anotacoes: document.getElementById('c_notas').value };
+    // Core injeta tenantId automaticamente
+    const p = { nome: document.getElementById('c_nome').value, telefone: document.getElementById('c_tel').value, documento: doc, email: document.getElementById('c_email').value, cep: document.getElementById('c_cep').value, rua: document.getElementById('c_rua').value, num: document.getElementById('c_num').value, bairro: document.getElementById('c_bairro').value, cidade: document.getElementById('c_cidade').value, anotacoes: document.getElementById('c_notas').value };
     
-    if(id) { await app.db.collection('clientes_base').doc(id).update(p); app.showToast("Ficha do cliente atualizada.", "success"); } 
-    else { await app.db.collection('clientes_base').add(p); app.showToast("Novo cliente registrado.", "success"); }
+    if(id) { 
+        await Core.atualizarRegistro('clientes_base', id, p); 
+        app.showToast("Ficha do cliente atualizada.", "success"); 
+    } else { 
+        await Core.criarRegistro('clientes_base', p); 
+        app.showToast("Novo cliente registrado.", "success"); 
+    }
     
     e.target.reset();
     bootstrap.Modal.getInstance(document.getElementById('modalCrm')).hide();
     
-    // Autopreenchimento se estiver criando pela O.S.
     if(document.getElementById('os_cliente') && document.getElementById('os_cliente').value === '') {
         document.getElementById('os_cliente').value = p.nome;
         document.getElementById('os_celular').value = p.telefone;
@@ -237,7 +239,7 @@ app.salvarClienteCRM = async function(e) {
 
 app.apagarCliente = async function(id) {
     if(confirm("Apagar o cadastro deste cliente? O histórico de veículos no Arquivo Morto será mantido.")) {
-        await app.db.collection('clientes_base').doc(id).delete();
+        await Core.deletarRegistro('clientes_base', id);
     }
 };
 
@@ -261,7 +263,7 @@ app.editarClienteRapido = function() {
 // 4. ALMOXARIFADO E LEITURA DE XML (NOTA FISCAL ELETRÔNICA)
 // =====================================================================
 app.iniciarEscutaEstoque = function() {
-    app.db.collection('estoque').where('tenantId', '==', app.t_id).onSnapshot(snap => {
+    Core.buscarDados('estoque', snap => {
         app.bancoEstoque = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const tbody = document.getElementById('tabelaEstoqueCorpo');
         if(tbody) {
@@ -321,7 +323,7 @@ app.salvarEntradaEstoque = async function(e) {
     const gerarPagamento = document.getElementById('nf_gerar_financeiro').checked;
     
     let totalCustoNF = 0;
-    const batch = app.db.batch();
+    const batch = app.db.batch(); // Mantemos o Batch do Firebase para multi-documentos simultâneos
     
     document.querySelectorAll('#corpoItensNF tr').forEach(tr => {
         const desc = tr.querySelector('.it-desc').value.trim();
@@ -332,13 +334,13 @@ app.salvarEntradaEstoque = async function(e) {
         if(desc !== '' && q > 0) {
             totalCustoNF += (q * c);
             const ref = app.db.collection('estoque').doc();
-            batch.set(ref, { tenantId: app.t_id, fornecedor: fornecedor, nf: nf, ncm: tr.querySelector('.it-ncm').value, cfop: tr.querySelector('.it-cfop').value, desc: desc, qtd: q, custo: c, venda: v, usuarioEntrada: app.user_nome, dataEntrada: new Date().toISOString() });
+            batch.set(ref, { tenantId: Core.empresaId, fornecedor: fornecedor, nf: nf, ncm: tr.querySelector('.it-ncm').value, cfop: tr.querySelector('.it-cfop').value, desc: desc, qtd: q, custo: c, venda: v, usuarioEntrada: app.user_nome, dataEntrada: new Date().toISOString() });
         }
     });
 
     if(gerarPagamento && totalCustoNF > 0) {
         const finRef = app.db.collection('financeiro').doc();
-        batch.set(finRef, { tenantId: app.t_id, tipo: 'despesa', desc: `Nota Fiscal Fornecedor: ${fornecedor} (NF: ${nf})`, valor: totalCustoNF, parcelaAtual: 1, totalParcelas: 1, metodo: 'Boleto/Pix', vencimento: new Date(document.getElementById('nf_data').value).toISOString(), status: 'pendente' });
+        batch.set(finRef, { tenantId: Core.empresaId, tipo: 'despesa', desc: `Nota Fiscal Fornecedor: ${fornecedor} (NF: ${nf})`, valor: totalCustoNF, parcelaAtual: 1, totalParcelas: 1, metodo: 'Boleto/Pix', vencimento: new Date(document.getElementById('nf_data').value).toISOString(), status: 'pendente' });
     }
     
     await batch.commit();
@@ -348,7 +350,7 @@ app.salvarEntradaEstoque = async function(e) {
 
 app.apagarProduto = async function(id) {
     if(confirm("Remover a peça permanentemente do estoque?")) {
-        await app.db.collection('estoque').doc(id).delete();
+        await Core.deletarRegistro('estoque', id);
     }
 };
 
@@ -356,7 +358,7 @@ app.apagarProduto = async function(id) {
 // 5. MOTOR CHEVRON KANBAN E PRONTUÁRIO
 // =====================================================================
 app.iniciarEscutaOS = function() {
-    app.db.collection('ordens_servico').where('tenantId', '==', app.t_id).onSnapshot(snap => {
+    Core.buscarDados('ordens_servico', snap => {
         app.bancoOSCompleto = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         if(app.t_role === 'equipe') {
@@ -416,7 +418,7 @@ app.mudarStatusRapido = async function(id, novoStatus) {
     let h = doc.data().historico || [];
     h.push({ data: new Date().toISOString(), usuario: app.user_nome, acao: `Card movido pelo pátio para: ${novoStatus.toUpperCase()}` });
     
-    await osRef.update({ status: novoStatus, historico: h, ultimaAtualizacao: new Date().toISOString() });
+    await Core.atualizarRegistro('ordens_servico', id, { status: novoStatus, historico: h, ultimaAtualizacao: new Date().toISOString() });
     
     if(confirm("Deseja notificar o cliente via WhatsApp sobre o novo status?")) {
         const url = `https://seusite.com/portal.html?t=${app.t_id}&os=${id}`;
@@ -438,7 +440,7 @@ app.renderizarTabelaArquivo = function() {
 };
 
 app.iniciarEscutaLixeira = function() {
-    app.db.collection('lixeira_auditoria').where('tenantId', '==', app.t_id).onSnapshot(snap => {
+    Core.buscarDados('lixeira_auditoria', snap => {
         const tb = document.getElementById('tabelaLixeiraCorpo');
         if(tb) tb.innerHTML = snap.docs.map(d => {
             const l = d.data();
@@ -456,8 +458,8 @@ app.apagarOS = async function() {
     const id = document.getElementById('os_id').value;
     const osCancelada = app.bancoOSCompleto.find(x => x.id === id);
     
-    await app.db.collection('lixeira_auditoria').add({ tenantId: app.t_id, placaOriginal: osCancelada.placa, apagadoPor: app.user_nome, apagadoEm: new Date().toISOString(), motivo: m, dadosAntigos: osCancelada });
-    await app.db.collection('ordens_servico').doc(id).delete();
+    await Core.criarRegistro('lixeira_auditoria', { placaOriginal: osCancelada.placa, apagadoPor: app.user_nome, apagadoEm: new Date().toISOString(), motivo: m, dadosAntigos: osCancelada });
+    await Core.deletarRegistro('ordens_servico', id);
     
     app.showToast("O.S. Deletada com sucesso. Arquivada na Lixeira.", "success");
     bootstrap.Modal.getInstance(document.getElementById('modalOS')).hide();
@@ -515,8 +517,8 @@ app.abrirModalOS = function(mode = 'nova', id = '') {
             if(os.chk_bateria) document.getElementById('chk_bateria').checked = true;
             if(os.chk_pneus) document.getElementById('chk_pneus').checked = true;
             
-            if (os.fotos) { app.fotosOSAtual = os.fotos; app.renderizarGaleria(); }
-            if (os.historico) { app.historicoOSAtual = os.historico; app.renderizarHistorico(); }
+            if (os.fotos && typeof app.renderizarGaleria === "function") { app.fotosOSAtual = os.fotos; app.renderizarGaleria(); }
+            if (os.historico && typeof app.renderizarHistorico === "function") { app.historicoOSAtual = os.historico; app.renderizarHistorico(); }
             if (os.pecas) os.pecas.forEach(p => app.adicionarLinhaPeca(p.desc, p.ncm, p.qtd, p.custo, p.venda, p.idEstoque, p.isMaoObra));
             
             if(btnPdf) btnPdf.classList.remove('d-none');
@@ -526,7 +528,7 @@ app.abrirModalOS = function(mode = 'nova', id = '') {
             const btnDel = document.getElementById('btnDeletarOS');
             if (app.t_role === 'admin' && btnDel) btnDel.classList.remove('d-none');
             
-            app.iniciarEscutaChat(os.id);
+            if (typeof app.iniciarEscutaChat === "function") app.iniciarEscutaChat(os.id);
         }
     } else {
         app.adicionarMaoDeObra();
@@ -586,9 +588,9 @@ app.salvarOS = async function() {
     const clienteOS = document.getElementById('os_cliente').value.trim();
     const telOS = document.getElementById('os_celular').value.trim();
     
-    // Cria Cliente Fast no CRM se não existir
+    // Cria Cliente Fast no CRM via Core se não existir
     if(clienteOS && !app.bancoCrm.find(c => c.nome.toLowerCase() === clienteOS.toLowerCase())) {
-        await app.db.collection('clientes_base').add({ tenantId: app.t_id, nome: clienteOS, telefone: telOS, documento: cpfOS, anotacoes: "Criado automaticamente via O.S." });
+        await Core.criarRegistro('clientes_base', { nome: clienteOS, telefone: telOS, documento: cpfOS, anotacoes: "Criado automaticamente via O.S." });
     }
 
     document.querySelectorAll('#listaPecasCorpo tr').forEach(tr => {
@@ -601,7 +603,7 @@ app.salvarOS = async function() {
     app.historicoOSAtual.push({ data: new Date().toISOString(), usuario: app.user_nome, acao: id ? "O.S e Orçamento atualizados." : "O.S. Técnica Aberta." });
     
     const payload = {
-        tenantId: app.t_id, placa: document.getElementById('os_placa').value.toUpperCase(),
+        placa: document.getElementById('os_placa').value.toUpperCase(),
         veiculo: document.getElementById('os_veiculo').value, cliente: clienteOS, celular: telOS,
         status: document.getElementById('os_status').value, relatoCliente: document.getElementById('os_relato_cliente').value,
         diagnostico: document.getElementById('os_diagnostico').value,
@@ -617,8 +619,8 @@ app.salvarOS = async function() {
     
     if (document.getElementById('os_status').value === 'entregue') { app.showToast("Para fechar e entregar, use o botão Verde de FATURAMENTO.", "warning"); return; }
     
-    if (id) await app.db.collection('ordens_servico').doc(id).update(payload);
-    else await app.db.collection('ordens_servico').add(payload);
+    if (id) await Core.atualizarRegistro('ordens_servico', id, payload);
+    else await Core.criarRegistro('ordens_servico', payload);
     
     app.showToast("Dados do veículo guardados no servidor.", "success");
     bootstrap.Modal.getInstance(document.getElementById('modalOS')).hide();
@@ -648,7 +650,7 @@ app.processarFaturamentoCompleto = async function() {
     // 1. Gera Faturas (Contas a Receber)
     for(let i=0; i<parcelas; i++) {
         let v = new Date(); v.setMonth(v.getMonth() + i);
-        batch.set(app.db.collection('financeiro').doc(), { tenantId: app.t_id, tipo: 'receita', desc: `O.S. Fechada: [${app.osParaFaturar.placa}] - ${app.osParaFaturar.cliente}`, valor: valorParcela, parcelaAtual: i+1, totalParcelas: parcelas, metodo: metodo, vencimento: v.toISOString(), status: (i===0 && (metodo==='Pix'||metodo==='Dinheiro')) ? 'pago' : 'pendente' });
+        batch.set(app.db.collection('financeiro').doc(), { tenantId: Core.empresaId, tipo: 'receita', desc: `O.S. Fechada: [${app.osParaFaturar.placa}] - ${app.osParaFaturar.cliente}`, valor: valorParcela, parcelaAtual: i+1, totalParcelas: parcelas, metodo: metodo, vencimento: v.toISOString(), status: (i===0 && (metodo==='Pix'||metodo==='Dinheiro')) ? 'pago' : 'pendente' });
     }
 
     // 2. Baixa Físico Real de Peças (NF)
@@ -705,14 +707,14 @@ app.salvarLancamentoFinanceiro = async function(e) {
     const batch = app.db.batch();
     for(let i=0; i<parcelas; i++) {
         let v = new Date(dataInicial); v.setMonth(v.getMonth() + i);
-        batch.set(app.db.collection('financeiro').doc(), { tenantId: app.t_id, tipo: tipo, desc: desc, valor: valorParcela, parcelaAtual: i+1, totalParcelas: parcelas, metodo: 'Boleto/Pix', vencimento: v.toISOString(), status: tipo==='receita' ? 'pago' : 'pendente' });
+        batch.set(app.db.collection('financeiro').doc(), { tenantId: Core.empresaId, tipo: tipo, desc: desc, valor: valorParcela, parcelaAtual: i+1, totalParcelas: parcelas, metodo: 'Boleto/Pix', vencimento: v.toISOString(), status: tipo==='receita' ? 'pago' : 'pendente' });
     }
     await batch.commit(); app.showToast(`Registros injetados no Caixa/DRE.`, "success");
     bootstrap.Modal.getInstance(document.getElementById('modalFin')).hide(); e.target.reset();
 };
 
 app.iniciarEscutaFinanceiro = function() {
-    app.db.collection('financeiro').where('tenantId', '==', app.t_id).onSnapshot(snap => {
+    Core.buscarDados('financeiro', snap => {
         app.bancoFin = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         app.renderizarFinanceiroGeral();
     });
@@ -729,8 +731,11 @@ app.renderizarFinanceiroGeral = function() {
         if(isR) totRec += f.valor; else totPag += f.valor;
         const cor = isR ? 'text-success' : 'text-danger';
         const st = f.status === 'pago' ? '<span class="badge bg-success px-2 py-1"><i class="bi bi-check2-all"></i> Pago</span>' : '<span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-hourglass-split"></i> Aberto</span>';
-        const btn = f.status === 'pendente' ? `<button class="btn btn-sm btn-outline-${isR?'success':'danger'} shadow-sm fw-bold px-3" onclick="app.db.collection('financeiro').doc('${f.id}').update({status:'pago'})"><i class="bi bi-currency-dollar"></i> Baixar</button>` : '';
-        const html = `<tr><td class="text-white-50"><i class="bi bi-calendar-event me-2"></i> ${new Date(f.vencimento).toLocaleDateString('pt-BR')}</td><td class="text-white fw-bold">${f.desc}</td><td><span class="badge bg-dark border border-secondary px-3 py-1 text-white-50">${f.parcelaAtual}/${f.totalParcelas}</span></td><td class="text-white-50 small">${f.metodo || 'Dinheiro'}</td><td class="${cor} fw-bold fs-6">R$ ${f.valor.toFixed(2).replace('.',',')}</td><td>${st}</td><td>${btn} <button class="btn btn-sm btn-link text-danger" onclick="app.db.collection('financeiro').doc('${f.id}').delete()"><i class="bi bi-trash"></i></button></td></tr>`;
+        
+        // Uso direto do Core para atualizar e deletar pela tela visual
+        const btn = f.status === 'pendente' ? `<button class="btn btn-sm btn-outline-${isR?'success':'danger'} shadow-sm fw-bold px-3" onclick="Core.atualizarRegistro('financeiro', '${f.id}', {status:'pago'})"><i class="bi bi-currency-dollar"></i> Baixar</button>` : '';
+        const html = `<tr><td class="text-white-50"><i class="bi bi-calendar-event me-2"></i> ${new Date(f.vencimento).toLocaleDateString('pt-BR')}</td><td class="text-white fw-bold">${f.desc}</td><td><span class="badge bg-dark border border-secondary px-3 py-1 text-white-50">${f.parcelaAtual}/${f.totalParcelas}</span></td><td class="text-white-50 small">${f.metodo || 'Dinheiro'}</td><td class="${cor} fw-bold fs-6">R$ ${f.valor.toFixed(2).replace('.',',')}</td><td>${st}</td><td>${btn} <button class="btn btn-sm btn-link text-danger" onclick="Core.deletarRegistro('financeiro', '${f.id}')"><i class="bi bi-trash"></i></button></td></tr>`;
+        
         if(isR) hReceber += html; else hPagar += html;
     });
 
@@ -816,7 +821,7 @@ app.exportarPDFMenechelli = async function() {
 // =====================================================================
 
 app.iniciarEscutaIA = function() {
-    app.db.collection('conhecimento_ia').where('tenantId', '==', app.t_id).onSnapshot(snap => {
+    Core.buscarDados('conhecimento_ia', snap => {
         app.bancoIA = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         app.renderizarListaIA();
     });
@@ -848,7 +853,7 @@ app.salvarConhecimentoIA = async function(textoAvulso = null) {
         return;
     }
     
-    await app.db.collection('conhecimento_ia').add({ tenantId: app.t_id, texto: valor, dataImportacao: new Date().toISOString() });
+    await Core.criarRegistro('conhecimento_ia', { texto: valor, dataImportacao: new Date().toISOString() });
     app.showToast("Conhecimento gravado! Sua I.A. ficou mais inteligente.", "success");
     
     if(textarea && !textoAvulso) textarea.value = '';
@@ -856,7 +861,7 @@ app.salvarConhecimentoIA = async function(textoAvulso = null) {
 
 app.apagarConhecimentoIA = async function(id) {
     if(confirm("Deseja apagar este conhecimento da I.A.?")) {
-        await app.db.collection('conhecimento_ia').doc(id).delete();
+        await Core.deletarRegistro('conhecimento_ia', id);
         app.showToast("Arquivo removido da memória.", "success");
     }
 };
