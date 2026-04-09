@@ -316,14 +316,18 @@
             setTimeout(() => { if(t.firstChild) t.firstChild.remove(); }, 4000);
         }
 
-        function sair() { sessionStorage.clear(); window.location.href='index.html'; }
+        function sair() { sessionStorage.clear(); localStorage.removeItem('thiaguinho_master'); window.location.href='index.html'; }
 
         // O SEU BANCO DE DADOS LIMPO COMEÇA AQUI: `tenants`
         let dbTenants = [];
         let dbSaaSFinanceiro = [];
 
         document.addEventListener('DOMContentLoaded', () => {
-            if (sessionStorage.getItem('thiaguinho_master') !== 'true') { window.location.replace('index.html'); return; }
+            // Aceita autenticação via localStorage (persiste entre abas) OU sessionStorage (mesmo tab)
+            const isMaster = localStorage.getItem('thiaguinho_master') === 'true' || sessionStorage.getItem('thiaguinho_master') === 'true';
+            if (!isMaster) { window.location.replace('index.html'); return; }
+            // Garante que sessionStorage também esteja sincronizado
+            sessionStorage.setItem('thiaguinho_master', 'true');
             
             // COLEÇÃO DEFINITIVA E CORRETA: tenants
             db.collection('tenants').onSnapshot(snap => {

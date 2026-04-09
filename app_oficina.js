@@ -1332,13 +1332,14 @@ app.chamarGemini = async function(prompt, sysInstruction) {
 
     try {
         // Tenta PRIMEIRO o modelo do Admin (2.5-flash)
-        let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, payloadOptions);
+        // Rota principal: gemini-2.0-flash (modelo estável e amplamente disponível em 2025/2026)
+        let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, payloadOptions);
         
-        // Se a Google bloquear por Simultaneidade (429) ou erro temporário...
+        // Se a Google bloquear por Simultaneidade (429), quota (403) ou erro temporário...
         if (!res.ok) {
-            console.warn("Rota 2.5-flash sobrecarregada. Acionando rota secundária 1.5-flash...");
-            // Desvia automaticamente para o modelo 1.5-flash oficial, sem sufixos bizarros.
-            res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, payloadOptions);
+            console.warn("Rota 2.0-flash indisponível. Acionando rota secundária 1.5-flash-latest...");
+            // Rota segura de fallback: gemini-1.5-flash-latest (nome correto com sufixo -latest)
+            res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${key}`, payloadOptions);
         }
 
         const data = await res.json(); 

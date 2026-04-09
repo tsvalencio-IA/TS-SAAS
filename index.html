@@ -151,6 +151,9 @@
         // Limpa resíduos antigos de cache que causam bugs ao recarregar a tela
         window.onload = function() {
             sessionStorage.clear();
+            // NOTA: localStorage.thiaguinho_master NÃO é limpo aqui.
+            // Ele só é removido quando o superadmin clica em "Trancar Agência" (sair()).
+            // Isso garante que a sessão do superadmin persista entre abas e reloads.
         };
 
         function showToast(msg, isError = true) {
@@ -194,7 +197,8 @@
                 // =========================================================
                 if (usr === 'thiaguinho' && pwd === 'master2026') {
                     sessionStorage.clear();
-                    sessionStorage.setItem('thiaguinho_master', 'true');
+                    localStorage.setItem('thiaguinho_master', 'true'); // localStorage sobrevive a novas abas e reloads
+                    sessionStorage.setItem('thiaguinho_master', 'true'); // sessionStorage como backup
                     sessionStorage.setItem('t_role', 'superadmin');
                     window.location.href = 'superadmin.html';
                     return; // Retorno crucial para não rodar o resto
@@ -204,6 +208,7 @@
                 if (!snapS.empty) {
                     if (snapS.docs[0].data().senha === pwd) {
                         sessionStorage.clear();
+                        localStorage.setItem('thiaguinho_master', 'true'); // localStorage sobrevive a novas abas e reloads
                         sessionStorage.setItem('thiaguinho_master', 'true');
                         sessionStorage.setItem('t_role', 'superadmin');
                         window.location.href = 'superadmin.html';
