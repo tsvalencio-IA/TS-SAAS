@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>thIAguinho Hub - ERP Automotivo Fiscal</title>
+    <title>thIAguinho Hub - ERP Automotivo Master</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -18,41 +18,82 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     
     <style>
-        :root { --bs-accent: #0dcaf0; --bg-darker: #0f172a; --bg-card: #1e293b; --border-color: #334155; --sidebar-width: 280px; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-darker); color: #f8f9fa; min-height: 100vh; display: flex; overflow-x: hidden; flex-direction: column;}
+        :root { --bs-accent: #0dcaf0; --bg-darker: #0f172a; --bg-card: #1e293b; --border-color: #334155; --sidebar-width: 260px; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-darker); color: #f8f9fa; margin: 0; padding: 0; overflow: hidden; height: 100vh; }
         ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: var(--bg-darker); } ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; } 
         
-        .wrapper { display: flex; flex-grow: 1; overflow: hidden; }
-        .sidebar { width: var(--sidebar-width); background-color: var(--bg-card); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 1040;}
+        .wrapper { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        
+        /* Menu Lateral */
+        .sidebar { width: var(--sidebar-width); background-color: var(--bg-card); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 1040; transition: margin-left 0.3s ease; flex-shrink: 0; }
+        .sidebar.collapsed { margin-left: calc(var(--sidebar-width) * -1); }
         .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border-color); text-align: center; }
         .nav-sidebar { padding: 15px 10px; flex-grow: 1; overflow-y: auto; }
-        .nav-sidebar .nav-link { color: #adb5bd; padding: 12px 20px; border-radius: 8px; margin-bottom: 5px; font-weight: 600; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.2s;}
+        .nav-sidebar .nav-link { color: #adb5bd; padding: 12px 15px; border-radius: 8px; margin-bottom: 5px; font-weight: 600; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.2s;}
         .nav-sidebar .nav-link:hover { background-color: rgba(255,255,255,0.05); color: #fff; }
         .nav-sidebar .nav-link.active { background-color: var(--bs-accent); color: #000; font-weight: 800; }
         
-        .main-content { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; overflow-y: auto; }
-        .topbar { background-color: var(--bg-card); border-bottom: 1px solid var(--border-color); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1030;}
-        .content-area { padding: 30px; flex-grow: 1; display: flex; flex-direction: column; }
+        /* Área Principal */
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; overflow: hidden; }
+        .topbar { background-color: var(--bg-card); border-bottom: 1px solid var(--border-color); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; z-index: 1030; flex-shrink: 0;}
+        .content-area { padding: 30px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column;}
 
-        .kanban-board { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 15px; flex-grow: 1; min-height: 500px;}
-        .kanban-col { background: rgba(30, 41, 59, 0.5); border: 1px dashed var(--border-color); border-radius: 12px; padding: 15px; min-width: 290px; width: 290px; display: flex; flex-direction: column; }
+        /* Quadro Kanban Responsivo */
+        .kanban-board { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 15px; flex-grow: 1; min-height: 500px; scroll-behavior: smooth;}
+        .kanban-col { background: rgba(30, 41, 59, 0.5); border: 1px dashed var(--border-color); border-radius: 12px; padding: 15px; min-width: 320px; width: 320px; display: flex; flex-direction: column; }
         .kanban-cards { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
         .os-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; cursor: pointer; transition: transform 0.2s; position: relative;}
         .os-card:hover { transform: translateY(-3px); border-color: var(--bs-accent); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .fast-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; opacity: 0; transition: 0.2s;}
         .os-card:hover .fast-actions { opacity: 1; }
         
+        /* Chats (Global e Interno) */
+        .chat-container { height: 60vh; max-height: 600px; display: flex; flex-direction: column; background-color: #1e2124; border-radius: 12px; border: 1px solid #495057; overflow: hidden; }
+        .chat-messages { flex-grow: 1; overflow-y: auto; padding: 20px; }
+        .message { margin-bottom: 15px; max-width: 85%; padding: 12px 15px; border-radius: 15px; font-size: 0.95rem; word-wrap: break-word; }
+        .message.admin { background-color: var(--bs-accent); align-self: flex-end; margin-left: auto; border-bottom-right-radius: 2px; color: #000; font-weight: 500; }
+        .message.cliente { background-color: #334155; align-self: flex-start; margin-right: auto; border-bottom-left-radius: 2px; border: 1px solid var(--border-color); }
+        .badge-nav { position: absolute; right: 15px; font-size: 0.7rem; padding: 4px 6px; border-radius: 50%; }
+
+        /* Timeline de Auditoria (Padrão Chevron) */
         .timeline { position: relative; padding-left: 30px; list-style: none; margin-bottom: 0; }
-        .timeline::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: var(--border-color); }
-        .timeline-item { position: relative; margin-bottom: 15px; }
-        .timeline-item::before { content: ''; position: absolute; left: -26px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--bs-accent); border: 2px solid var(--bg-card); }
+        .timeline-item { position: relative; margin-bottom: 20px; padding-left: 10px;}
+        .timeline-item::before { content: ''; position: absolute; left: -36px; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: var(--bs-accent); border: 2px solid var(--bg-card); }
+        .timeline-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .timeline-item-body { background: rgba(0,0,0,0.3); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.9rem; }
         
         .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        
+        /* Classes RBAC (Controle de Acesso) manipuladas pelo JS */
         .admin-only { display: block; }
         .mecanico-only { display: none; }
+        .gestao-only { display: none; }
         
-        .xml-dropzone { border: 2px dashed var(--bs-accent); background: rgba(13, 202, 240, 0.05); padding: 30px; text-align: center; border-radius: 10px; cursor: pointer; transition: 0.3s; }
-        .xml-dropzone:hover { background: rgba(13, 202, 240, 0.1); }
+        /* Estilo Personalizado para as Abas do Prontuário para destacar a aba Ativa */
+        .nav-tabs .nav-link {
+            color: #adb5bd; /* Cor inativa */
+            border: 1px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-tabs .nav-link:hover {
+            border-color: var(--border-color) var(--border-color) transparent;
+            color: #fff;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: var(--bg-card) !important; /* Fundo da aba ativa */
+            color: var(--bs-accent) !important; /* Cor do texto da aba ativa */
+            border-color: var(--border-color) var(--border-color) transparent !important;
+            font-weight: bold;
+            border-bottom: 3px solid var(--bs-accent) !important; /* Destaque inferior na aba ativa */
+        }
+        /* Garantir que as abas do financeiro também tenham um destaque claro */
+        #tela_financeiro .nav-tabs .nav-link.active {
+             border-bottom: 3px solid var(--bs-accent) !important;
+             background-color: transparent !important;
+        }
+
+        .master-footer { text-align: center; padding: 15px; background: #000; border-top: 1px solid var(--border-color); color: #64748b; font-size: 0.85rem; letter-spacing: 1px; width: 100%; flex-shrink: 0;}
     </style>
 </head>
 <body>
@@ -62,52 +103,67 @@
             <div class="sidebar-header">
                 <i class="bi bi-car-front-fill fs-2 text-info"></i>
                 <h5 class="mt-2 text-white fw-bold" id="lblEmpresa">Carregando...</h5>
-                <span class="badge bg-dark border border-secondary text-info fw-normal text-uppercase">ERP Automotivo Fiscal</span>
+                <span class="badge bg-dark border border-secondary text-info fw-normal text-uppercase">ERP Master</span>
             </div>
-            <div class="nav-sidebar" id="menuLateral"></div>
-            <div class="p-3 border-top border-secondary text-center bg-black">
-                <small class="text-white-50 d-block mb-1">Operador: <strong class="text-info" id="lblUsuario">User</strong></small>
-                <small class="text-warning d-block mb-2 fw-bold" id="lblComissaoUser">Gestor Master</small>
-                <button class="btn btn-outline-danger w-100 fw-bold shadow-sm" onclick="sair()"><i class="bi bi-power me-2"></i> Encerrar Sessão</button>
+            <div class="nav-sidebar" id="menuLateral">
+                </div>
+            <div class="p-3 border-top border-secondary text-center bg-black mt-auto">
+                <small class="text-white-50 d-block mb-1">Operador: <strong class="text-info" id="lblUsuario">A Carregar...</strong></small>
+                <small class="text-warning d-block mb-2 fw-bold" id="lblComissaoUser"></small>
+                <button class="btn btn-outline-danger w-100 fw-bold shadow-sm" onclick="app.sair()"><i class="bi bi-power me-2"></i> Encerrar Sessão</button>
             </div>
         </nav>
 
         <div class="main-content">
             <header class="topbar shadow-sm">
-                <h4 class="mb-0 fw-bold text-white" id="tituloPagina">Dashboard</h4>
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-dark border-secondary me-3" onclick="document.getElementById('sidebar').classList.toggle('collapsed')"><i class="bi bi-list fs-4 text-white"></i></button>
+                    <h4 class="mb-0 fw-bold text-white" id="tituloPagina">Dashboard</h4>
+                </div>
                 <div class="d-flex align-items-center gap-3">
-                    <div class="input-group" style="width: 400px;">
+                    <div class="input-group" style="width: 350px;">
                         <span class="input-group-text bg-dark border-secondary text-info"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control bg-dark text-white border-secondary fw-bold" id="buscaGeral" placeholder="Pesquisar Placa, Cliente, CPF ou O.S..." onkeyup="filtrarGlobal()">
+                        <input type="text" class="form-control bg-dark text-white border-secondary fw-bold" id="buscaGeral" placeholder="Pesquisar Placa, Cliente ou Ref..." onkeyup="app.filtrarGlobal()">
                     </div>
                 </div>
             </header>
 
             <main class="content-area" id="areaTelas">
                 
-                <div id="tela_dashboard" class="modulo-tela">
+                <div id="tela_jarvis" class="modulo-tela">
                     <div class="card border-0 bg-dark p-5 mb-4 shadow text-center position-relative overflow-hidden" style="border: 1px solid #0dcaf0 !important;">
                         <i class="bi bi-robot position-absolute opacity-10" style="font-size: 15rem; left: -20px; bottom: -40px; color: #0dcaf0;"></i>
                         <h2 class="text-info fw-bold z-1 position-relative">t.h.I.A.g.u.i.n.h.o - Inteligência Automotiva</h2>
-                        <p class="text-white-50 mb-4 fs-5 z-1 position-relative">Monitoramento Ativo de O.S., Notas Fiscais e Relacionamento.</p>
+                        <p class="text-white-50 mb-4 fs-5 z-1 position-relative">Gestor Virtual de CRM, Estoque e Dúvidas Técnicas da sua Oficina.</p>
                         
-                        <div class="row g-4 z-1 position-relative justify-content-center admin-only">
-                            <div class="col-md-5 text-start">
+                        <div class="row g-4 z-1 position-relative justify-content-center gestao-only">
+                            <div class="col-md-6 text-start">
                                 <div class="bg-black p-4 rounded-4 border border-secondary h-100">
-                                    <h5 class="text-warning fw-bold"><i class="bi bi-calendar-check-fill me-2"></i> Radar de Revisões (CRM Integrado)</h5>
-                                    <p class="text-white-50 small">Busca clientes com serviços vencidos há mais de 6 meses para remarketing.</p>
-                                    <button class="btn btn-outline-warning w-100 mb-3" onclick="jarvisAnalisarRevisoes()"><i class="bi bi-radar"></i> Escanear Base de Clientes</button>
-                                    <div id="jarvisCRMInsights" class="text-white mt-3 small" style="max-height: 150px; overflow-y: auto;"></div>
+                                    <h5 class="text-warning fw-bold"><i class="bi bi-calendar-check-fill me-2"></i> Radar de Revisões (Remarketing Avançado)</h5>
+                                    <p class="text-white-50 small">A I.A. escaneia o Histórico Morto para encontrar clientes ideais para novas revisões preventivas.</p>
+                                    <button class="btn btn-outline-warning w-100 mb-3 fw-bold" onclick="app.jarvisAnalisarRevisoes()"><i class="bi bi-radar"></i> Rodar Radar de Clientes</button>
+                                    <div id="jarvisCRMInsights" class="text-white mt-3 small" style="max-height: 200px; overflow-y: auto;"></div>
                                 </div>
                             </div>
-                            <div class="col-md-7 text-start">
-                                <div class="bg-black p-4 rounded-4 border border-secondary h-100">
-                                    <h5 class="text-info fw-bold"><i class="bi bi-chat-square-dots-fill me-2"></i> Pergunte ao t.h.I.A.g.u.i.n.h.o</h5>
-                                    <div class="input-group mt-3">
-                                        <input type="text" class="form-control bg-dark border-secondary text-white" id="jarvisInput" placeholder="Ex: Qual o CFOP da vela de ignição? / O que foi feito no Gol ABC-1234?">
-                                        <button class="btn btn-info" onclick="perguntarJarvis()"><i class="bi bi-send-fill"></i></button>
+                            <div class="col-md-6 text-start">
+                                <div class="bg-black p-4 rounded-4 border border-secondary h-100 d-flex flex-column">
+                                    <h5 class="text-info fw-bold"><i class="bi bi-chat-square-dots-fill me-2"></i> Bate-Papo com a I.A. (Jarvis)</h5>
+                                    <p class="text-white-50 small">Tire dúvidas técnicas baseadas nos manuais que você treinou.</p>
+                                    
+                                    <div id="jarvisResposta" class="text-white small bg-dark p-3 rounded border border-info flex-grow-1 d-none mb-3" style="max-height: 200px; overflow-y: auto;"></div>
+                                    
+                                    <div class="input-group mt-auto">
+                                        <input type="text" class="form-control bg-dark border-secondary text-white" id="jarvisInput" placeholder="Ex: Qual o torque do cabeçote do HB20?">
+                                        <button class="btn btn-info px-4" onclick="app.perguntarJarvis()"><i class="bi bi-send-fill text-dark"></i></button>
                                     </div>
-                                    <div id="jarvisResposta" class="mt-3 text-white small bg-dark p-3 rounded border border-info d-none" style="max-height: 150px; overflow-y: auto;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-4 z-1 position-relative justify-content-center mecanico-only">
+                            <div class="col-md-8 text-start">
+                                <div class="bg-black p-4 rounded-4 border border-secondary h-100 text-center">
+                                    <h5 class="text-warning fw-bold"><i class="bi bi-wallet2 me-2"></i> Minhas Comissões (Veículos Entregues)</h5>
+                                    <h1 class="display-3 text-success fw-bold mt-3" id="kpiMinhaComissao">R$ 0,00</h1>
                                 </div>
                             </div>
                         </div>
@@ -116,15 +172,15 @@
 
                 <div id="tela_os" class="modulo-tela h-100" style="display: none;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h4 class="text-white fw-bold mb-0"><i class="bi bi-kanban me-2 text-info"></i> Pátio Ativo de Serviços</h4>
-                        <button class="btn btn-info fw-bold shadow-lg" onclick="abrirModalOS()"><i class="bi bi-plus-lg me-1"></i> Abrir O.S.</button>
+                        <h4 class="text-white fw-bold mb-0"><i class="bi bi-kanban me-2 text-info"></i> Pátio Ativo</h4>
+                        <button class="btn btn-info fw-bold shadow-lg px-4 gestao-only" onclick="app.abrirModalOS('nova')"><i class="bi bi-plus-lg me-1"></i> Nova Recepção de Veículo</button>
                     </div>
                     <div class="kanban-board">
-                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-cone-striped text-warning me-2"></i> Recepção / Fila <span class="badge bg-secondary float-end" id="count_patio">0</span></h6><div class="kanban-cards" id="col_patio"></div></div>
-                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-file-earmark-text text-primary me-2"></i> Orçamento Feito <span class="badge bg-secondary float-end" id="count_orcamento">0</span></h6><div class="kanban-cards" id="col_orcamento"></div></div>
-                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-hourglass-split text-danger me-2"></i> Aguard. Cliente <span class="badge bg-secondary float-end" id="count_aprovacao">0</span></h6><div class="kanban-cards" id="col_aprovacao"></div></div>
-                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-tools text-info me-2"></i> Execução (Box) <span class="badge bg-secondary float-end" id="count_box">0</span></h6><div class="kanban-cards" id="col_box"></div></div>
-                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-check-circle-fill text-success me-2"></i> Pronto p/ Entrega <span class="badge bg-secondary float-end" id="count_pronto">0</span></h6><div class="kanban-cards" id="col_pronto"></div></div>
+                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-clipboard-data text-warning me-2"></i> 1. Avaliação Inicial <span class="badge bg-secondary float-end" id="count_patio">0</span></h6><div class="kanban-cards" id="col_patio"></div></div>
+                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-file-earmark-text text-primary me-2"></i> 2. Orçamento Feito <span class="badge bg-secondary float-end" id="count_orcamento">0</span></h6><div class="kanban-cards" id="col_orcamento"></div></div>
+                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-hourglass-split text-danger me-2"></i> 3. Aguard. Aprovação <span class="badge bg-secondary float-end" id="count_aprovacao">0</span></h6><div class="kanban-cards" id="col_aprovacao"></div></div>
+                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-tools text-info me-2"></i> 4. Box (Execução) <span class="badge bg-secondary float-end" id="count_box">0</span></h6><div class="kanban-cards" id="col_box"></div></div>
+                        <div class="kanban-col"><h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 fw-bold"><i class="bi bi-check-circle-fill text-success me-2"></i> 5. Pronto / Lavagem <span class="badge bg-secondary float-end" id="count_pronto">0</span></h6><div class="kanban-cards" id="col_pronto"></div></div>
                     </div>
                 </div>
 
@@ -132,11 +188,22 @@
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <h4 class="text-white fw-bold mb-0"><i class="bi bi-archive-fill me-2 text-warning"></i> Histórico de Veículos Entregues</h4>
                     </div>
-                    <div class="card bg-transparent border-0">
+                    <div class="card bg-transparent border-0 mb-5">
                         <div class="table-responsive">
                             <table class="table table-dark table-hover align-middle border-secondary shadow-sm">
-                                <thead><tr><th>Data Baixa</th><th>Placa</th><th>Veículo</th><th>Cliente</th><th class="admin-only">Total Faturado</th><th class="text-center">Ações</th></tr></thead>
+                                <thead><tr><th>Data de Entrega</th><th>Placa</th><th>Veículo</th><th>Cliente</th><th class="gestao-only">Total Faturado</th><th class="text-center">Ações</th></tr></thead>
                                 <tbody id="tabelaArquivoCorpo"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 border-top border-secondary pt-4 admin-only">
+                        <h5 class="text-danger fw-bold mb-3"><i class="bi bi-trash3-fill me-2"></i> Lixeira de Auditoria (Soft Delete)</h5>
+                        <p class="text-white-50 small">Ordens de Serviço canceladas não desaparecem. Ficam retidas aqui com a devida justificativa antifraude.</p>
+                        <div class="table-responsive bg-black border border-danger rounded p-2">
+                            <table class="table table-dark table-sm align-middle border-secondary mb-0">
+                                <thead><tr><th>Data Exclusão</th><th>Placa Ref.</th><th>Quem Excluiu</th><th>Motivo / Justificativa Obrigatória</th></tr></thead>
+                                <tbody id="tabelaLixeiraCorpo"></tbody>
                             </table>
                         </div>
                     </div>
@@ -144,15 +211,59 @@
 
                 <div id="tela_crm" class="modulo-tela" style="display: none;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h4 class="text-white fw-bold mb-0"><i class="bi bi-person-lines-fill me-2 text-info"></i> Base de Clientes (CRM)</h4>
-                        <button class="btn btn-info fw-bold shadow admin-only" onclick="abrirModalCRM()"><i class="bi bi-plus-lg me-1"></i> Cadastrar Cliente</button>
+                        <h4 class="text-white fw-bold mb-0"><i class="bi bi-person-lines-fill me-2 text-info"></i> Base CRM e Contas de Portal</h4>
+                        <button class="btn btn-info fw-bold shadow gestao-only" onclick="app.abrirModalCRM('nova')"><i class="bi bi-person-plus-fill me-1"></i> Cadastrar Novo Cliente</button>
                     </div>
                     <div class="card bg-transparent border-0">
                         <div class="table-responsive">
-                            <table class="table table-dark table-hover align-middle border-secondary">
-                                <thead><tr><th>Nome</th><th>Documento (CPF/CNPJ)</th><th>Contatos</th><th>Endereço Principal</th><th class="admin-only text-end">Ação</th></tr></thead>
+                            <table class="table table-dark table-hover align-middle border-secondary shadow-sm">
+                                <thead><tr><th>Nome / Razão Social</th><th>Documento (CPF/CNPJ)</th><th>WhatsApp</th><th>Login do Portal</th><th class="gestao-only text-end">Ações</th></tr></thead>
                                 <tbody id="tabelaCrmCorpo"></tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tela_chat" class="modulo-tela h-100" style="display: none;">
+                    <div class="row h-100 g-4">
+                        <div class="col-lg-4">
+                            <div class="card h-100 border-0 bg-dark border-secondary" style="border: 1px solid var(--border-color);">
+                                <div class="card-header bg-black border-secondary py-3"><h5 class="mb-0 text-info"><i class="bi bi-chat-left-dots"></i> Clientes (Portal Web)</h5></div>
+                                <div class="list-group list-group-flush bg-transparent" id="chatListaClientesCRM" style="overflow-y:auto; height:calc(100vh - 250px);"></div>
+                            </div>
+                        </div>
+                        <div class="col-lg-8">
+                            <div class="card h-100 border-0 bg-dark" style="border: 1px solid var(--border-color);">
+                                <div class="card-header bg-black border-secondary py-3"><h5 id="chatNomeCliente" class="text-warning mb-0">Selecione um cliente para iniciar o atendimento...</h5></div>
+                                <div class="card-body p-0 d-flex flex-column bg-black">
+                                    <div class="chat-container border-0 w-100 bg-transparent h-100 d-flex flex-column">
+                                        <div class="chat-messages p-3 flex-grow-1 d-flex flex-column" id="chatAreaMsgGlobal"></div>
+                                        <div class="p-3 border-top border-secondary d-flex align-items-center" id="chatAreaInputGlobal" style="display:none; background-color:#1e2124;">
+                                            <button class="btn btn-outline-secondary rounded-circle me-2 flex-shrink-0" onclick="document.getElementById('chatFileInputGlobal').click()"><i class="bi bi-paperclip"></i></button>
+                                            <input type="file" id="chatFileInputGlobal" accept="image/*,video/*,audio/*,application/pdf" style="display:none;" onchange="app.enviarAnexoChatGlobal()">
+                                            <input type="text" class="form-control rounded-pill px-4 text-white border-secondary bg-dark flex-grow-1" id="inputChatGlobal" placeholder="Escreva a sua mensagem para o portal do cliente...">
+                                            <button class="btn btn-info rounded-circle ms-3 flex-shrink-0" onclick="app.enviarMensagemChatGlobal()"><i class="bi bi-send-fill text-dark"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="tela_chat_interno" class="modulo-tela h-100" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="text-white fw-bold mb-0"><i class="bi bi-headset me-2 text-warning"></i> Comunicação Interna (Equipe)</h4>
+                    </div>
+                    <div class="card h-100 border-0 bg-dark" style="border: 1px solid var(--border-color);">
+                        <div class="card-body p-0 d-flex flex-column bg-black rounded-3">
+                            <div class="chat-container border-0 w-100 bg-transparent h-100 d-flex flex-column">
+                                <div class="chat-messages p-3 flex-grow-1 d-flex flex-column" id="chatAreaMsgInterno"></div>
+                                <div class="p-3 border-top border-secondary d-flex align-items-center" style="background-color:#1e2124;">
+                                    <input type="text" class="form-control rounded-pill px-4 text-white border-secondary bg-dark flex-grow-1" id="inputChatInterno" placeholder="Avisar a equipe ou chamar o gestor...">
+                                    <button class="btn btn-warning rounded-circle ms-3 flex-shrink-0" onclick="app.enviarMensagemInterna()"><i class="bi bi-megaphone-fill text-dark"></i></button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -160,687 +271,564 @@
                 <div id="tela_estoque" class="modulo-tela" style="display: none;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <h4 class="text-white fw-bold mb-0"><i class="bi bi-box-seam me-2 text-primary"></i> Almoxarifado / Estoque Físico</h4>
-                        <button class="btn btn-primary fw-bold admin-only" onclick="abrirModalNF()"><i class="bi bi-receipt me-1"></i> Entrada de N.F (XML/Manual)</button>
+                        <button class="btn btn-primary fw-bold shadow gestao-only" onclick="app.abrirModalNF('nova')"><i class="bi bi-receipt me-1"></i> Nova Entrada (NF-e ou Manual)</button>
                     </div>
                     <div class="card bg-transparent border-0">
-                        <table class="table table-dark table-hover align-middle border-secondary">
-                            <thead><tr><th>Fornecedor/NF</th><th>Cód. Barras/NCM</th><th>Peça/Produto</th><th>Qtd. Atual</th><th class="admin-only">Custo (R$)</th><th>Venda (R$)</th><th class="admin-only text-end">Ações</th></tr></thead>
-                            <tbody id="tabelaEstoqueCorpo"></tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover align-middle border-secondary shadow-sm">
+                                <thead><tr><th>Fornecedor Origem / NF</th><th>NCM/CFOP</th><th>Descrição do Item</th><th>Qtd Fís.</th><th class="gestao-only text-danger">Custo Un (R$)</th><th class="text-success">Venda (R$)</th><th class="gestao-only text-end">Ações</th></tr></thead>
+                                <tbody id="tabelaEstoqueCorpo"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tela_financeiro" class="modulo-tela" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="text-white fw-bold mb-0"><i class="bi bi-bank text-success me-2"></i> DRE Gerencial e Fluxo de Caixa</h4>
+                        <div class="d-flex gap-2 gestao-only">
+                            <button class="btn btn-outline-danger fw-bold shadow-sm" onclick="app.abrirModalFinanceiro('nova', 'despesa')"><i class="bi bi-dash-circle me-1"></i> Lançar Despesa (Pagar)</button>
+                            <button class="btn btn-outline-success fw-bold shadow-sm" onclick="app.abrirModalFinanceiro('nova', 'receita')"><i class="bi bi-plus-circle me-1"></i> Receita Avulsa (Receber)</button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-black p-3 rounded-4 border border-secondary shadow-sm mb-4 gestao-only">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-3 col-sm-6">
+                                <label class="text-white-50 small fw-bold mb-1">Data Inicial</label>
+                                <input type="date" class="form-control bg-dark text-white border-secondary" id="filtroFinInicio">
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <label class="text-white-50 small fw-bold mb-1">Data Final</label>
+                                <input type="date" class="form-control bg-dark text-white border-secondary" id="filtroFinFim">
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <button class="btn btn-info w-100 fw-bold" onclick="app.filtrarFinanceiro()"><i class="bi bi-funnel-fill me-1"></i> Aplicar Filtros</button>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <button class="btn btn-outline-success w-100 fw-bold" onclick="app.exportarRelatorioFinanceiro()"><i class="bi bi-file-earmark-excel-fill me-1"></i> Exportar Relatório</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <ul class="nav nav-tabs border-secondary mb-4" role="tablist">
+                        <li class="nav-item" role="presentation"><button class="nav-link active bg-transparent text-white fw-bold border-secondary border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabDre" type="button" role="tab">DRE / Lucratividade</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link bg-transparent text-danger fw-bold border-secondary border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabPagar" type="button" role="tab">Contas a Pagar</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link bg-transparent text-success fw-bold border-secondary border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabReceber" type="button" role="tab">Contas a Receber</button></li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="tabDre" role="tabpanel">
+                            <div class="row g-4 mb-4">
+                                <div class="col-md-3"><div class="card bg-dark border-success p-3"><small class="text-success fw-bold">Faturamento Bruto</small><h3 class="text-white mb-0" id="dreReceitas">R$ 0,00</h3></div></div>
+                                <div class="col-md-3"><div class="card bg-dark border-danger p-3"><small class="text-danger fw-bold">Despesas (Estoque + Fixas)</small><h3 class="text-white mb-0" id="dreDespesas">R$ 0,00</h3></div></div>
+                                <div class="col-md-3"><div class="card bg-dark border-warning p-3"><small class="text-warning fw-bold">Comissões da Equipe</small><h3 class="text-white mb-0" id="dreComissoes">R$ 0,00</h3></div></div>
+                                <div class="col-md-3"><div class="card bg-dark border-info p-3"><small class="text-info fw-bold">Lucro Líquido</small><h3 class="text-white mb-0" id="dreLucro">R$ 0,00</h3></div></div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="tabPagar" role="tabpanel">
+                            <div class="table-responsive"><table class="table table-dark table-hover table-sm align-middle border-secondary"><thead><tr><th>Data Vencimento</th><th>Fornecedor/Doc</th><th>Parcela</th><th>Forma Pagto</th><th>Valor</th><th>Status</th><th class="gestao-only text-end">Ações (Quitar/Editar)</th></tr></thead><tbody id="tabelaPagarCorpo"></tbody></table></div>
+                        </div>
+                        <div class="tab-pane fade" id="tabReceber" role="tabpanel">
+                            <div class="table-responsive"><table class="table table-dark table-hover table-sm align-middle border-secondary"><thead><tr><th>Data Recebimento</th><th>Cliente/Origem</th><th>Parcela</th><th>Forma Pagto</th><th>Valor</th><th>Status</th><th class="gestao-only text-end">Ações (Quitar/Editar)</th></tr></thead><tbody id="tabelaReceberCorpo"></tbody></table></div>
+                        </div>
                     </div>
                 </div>
 
                 <div id="tela_ia" class="modulo-tela h-100" style="display: none;">
                     <div class="row h-100 g-4 admin-only">
                         <div class="col-md-12 d-flex flex-column h-100">
-                            <h5 class="text-warning fw-bold mb-3"><i class="bi bi-database-fill-up me-2"></i> Treinamento I.A. (Upload de Manuais e Catálogos)</h5>
-                            <p class="text-white-50 small">Suba manuais técnicos em PDF, listas de CFOP ou regras da oficina para injetar na mente da IA.</p>
+                            <h5 class="text-warning fw-bold mb-3"><i class="bi bi-database-fill-up me-2"></i> Base de Conhecimento RAG (I.A. Gemini 2.5)</h5>
+                            <p class="text-white-50 small">Alimente a Inteligência Artificial com manuais de mecânica, PDFs de regras ou catálogos de peças. Ela usará isso para responder no Consultor Técnico e guiar os mecânicos no Box.</p>
                             <div class="mb-3">
-                                <label class="btn btn-outline-warning w-100 fw-bold p-3" style="border-style: dashed;">
-                                    <i class="bi bi-file-earmark-pdf-fill me-2"></i> Injetar Conhecimento (PDF/TXT)
-                                    <input type="file" id="iaFileUpload" accept=".pdf,.txt" class="d-none" onchange="processarArquivoParaIA(event)">
+                                <label class="btn btn-outline-warning w-100 fw-bold p-4 mb-3 border-dashed shadow-sm">
+                                    <i class="bi bi-file-earmark-pdf-fill me-2 fs-5"></i> Injetar Manual em PDF ou TXT
+                                    <input type="file" id="iaFileUpload" accept=".pdf,.txt" class="d-none" onchange="app.processarArquivoParaIA(event)">
                                 </label>
-                                <small class="text-success d-block mt-2" id="iaFileStatus"></small>
+                                <small class="text-success fw-bold d-block text-center" id="iaFileStatus"></small>
                             </div>
-                            <div class="mt-2 border-top border-secondary pt-3">
-                                <h6 class="text-white-50 small fw-bold">Memória Ativa:</h6>
+                            <div class="flex-grow-1 d-flex flex-column">
+                                <textarea class="form-control bg-black text-white border-secondary flex-grow-1 mb-3" id="iaConhecimentoTexto" placeholder="Ou digite/cole regras, torques e instruções diretas aqui para a I.A aprender instantaneamente..."></textarea>
+                                <button class="btn btn-success fw-bold shadow-sm py-3" onclick="app.salvarConhecimentoIA()"><i class="bi bi-hdd-network-fill me-2"></i> GRAVAR NA MENTE DA I.A.</button>
+                            </div>
+                            <div class="mt-4 border-top border-secondary pt-3">
+                                <h6 class="text-white-50 small fw-bold">Documentos e Regras Memorizadas Atualmente:</h6>
                                 <div id="listaConhecimentosIA" style="max-height: 250px; overflow-y: auto;"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div id="tela_financeiro" class="modulo-tela" style="display: none;">
+                <div id="tela_equipe" class="modulo-tela" style="display: none;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h4 class="text-white fw-bold mb-0"><i class="bi bi-bank text-success me-2"></i> DRE & Gestão de Pagamentos</h4>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-outline-danger fw-bold" onclick="abrirModalFinanceiro('despesa')"><i class="bi bi-dash-circle me-1"></i> Lançar Despesa (A Pagar)</button>
-                            <button class="btn btn-outline-success fw-bold" onclick="abrirModalFinanceiro('receita')"><i class="bi bi-plus-circle me-1"></i> Receita Avulsa / Balcão</button>
-                        </div>
+                        <h4 class="text-white fw-bold"><i class="bi bi-people-fill me-2 text-success"></i> Gestão de Colaboradores e Comissões</h4>
+                        <button class="btn btn-success shadow admin-only fw-bold" onclick="app.abrirModalEquipe()"><i class="bi bi-person-plus-fill me-1"></i> Contratar / Novo Acesso</button>
                     </div>
-                    <ul class="nav nav-tabs border-secondary mb-4" role="tablist">
-                        <li class="nav-item"><button class="nav-link active bg-transparent text-white fw-bold border-secondary border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabDre">DRE / Resumo Operacional</button></li>
-                        <li class="nav-item"><button class="nav-link bg-transparent text-danger fw-bold border-secondary border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabPagar">Contas a Pagar</button></li>
-                        <li class="nav-item"><button class="nav-link bg-transparent text-success fw-bold border-secondary border-bottom-0" data-bs-toggle="tab" data-bs-target="#tabReceber">Contas a Receber</button></li>
-                    </ul>
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="tabDre">
-                            <div class="row g-4 mb-4">
-                                <div class="col-md-3"><div class="card bg-dark border-success p-3"><small class="text-success fw-bold">Faturado Global</small><h3 class="text-white mb-0" id="dreReceitas">R$ 0,00</h3></div></div>
-                                <div class="col-md-3"><div class="card bg-dark border-danger p-3"><small class="text-danger fw-bold">Despesas e Compras Pagar</small><h3 class="text-white mb-0" id="dreDespesas">R$ 0,00</h3></div></div>
-                                <div class="col-md-3"><div class="card bg-dark border-warning p-3"><small class="text-warning fw-bold">Comissões Equipe</small><h3 class="text-white mb-0" id="dreComissoes">R$ 0,00</h3></div></div>
-                                <div class="col-md-3"><div class="card bg-dark border-info p-3"><small class="text-info fw-bold">Lucro Líquido Real</small><h3 class="text-white mb-0" id="dreLucro">R$ 0,00</h3></div></div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="tabPagar"><div class="table-responsive"><table class="table table-dark table-hover table-sm align-middle border-secondary"><thead><tr><th>Vencimento</th><th>Fornecedor/N.F.</th><th>Parcela</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead><tbody id="tabelaPagarCorpo"></tbody></table></div></div>
-                        <div class="tab-pane fade" id="tabReceber"><div class="table-responsive"><table class="table table-dark table-hover table-sm align-middle border-secondary"><thead><tr><th>Vencimento</th><th>Origem/Cliente</th><th>Parcela</th><th>Método</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead><tbody id="tabelaReceberCorpo"></tbody></table></div></div>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover align-middle border-secondary shadow-sm">
+                            <thead><tr><th>Nome</th><th>Nível de Acesso (RBAC)</th><th class="text-warning">Comissão M.O.</th><th class="text-success">Comissão Peças</th><th>Credenciais (Login/Senha)</th><th class="admin-only text-end">Ações</th></tr></thead>
+                            <tbody id="tabelaEquipe"></tbody>
+                        </table>
                     </div>
                 </div>
 
             </main>
+            <footer class="master-footer">
+                <i class="bi bi-hexagon-fill text-info me-1"></i> Powered by <strong>thIAguinho Soluções Digitais</strong> &copy; 2026 - ERP Automotivo Master
+            </footer>
         </div>
     </div>
 
-    <div class="modal fade" id="modalCrm" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content bg-dark border-info"><div class="modal-header border-secondary bg-black"><h5 class="modal-title text-white fw-bold">Ficha de Cliente (CRM)</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body p-4">
-        <form id="formCrm" onsubmit="salvarClienteCRM(event)">
-            <input type="hidden" id="crm_id">
-            <div class="row g-3 mb-3">
-                <div class="col-md-8"><label class="text-white-50">Nome Completo / Razão Social *</label><input type="text" class="form-control bg-black text-white" id="c_nome" required></div>
-                <div class="col-md-4"><label class="text-white-50">Documento (CPF/CNPJ) *</label><input type="text" class="form-control bg-black text-warning fw-bold" id="c_doc" required onblur="validarDocUI(this)" placeholder="Somente números"></div>
-            </div>
-            <div class="row g-3 mb-3">
-                <div class="col-md-6"><label class="text-white-50">WhatsApp / Celular *</label><input type="text" class="form-control bg-black text-white" id="c_tel" required></div>
-                <div class="col-md-6"><label class="text-white-50">E-mail (Opcional)</label><input type="email" class="form-control bg-black text-white" id="c_email"></div>
-            </div>
-            <h6 class="text-white border-bottom border-secondary pb-2 mt-4">Endereço (Opcional para NF)</h6>
-            <div class="row g-3 mb-3">
-                <div class="col-md-3"><label class="text-white-50">CEP</label><input type="text" class="form-control bg-black text-white" id="c_cep" onblur="buscarCEP(this.value)"></div>
-                <div class="col-md-7"><label class="text-white-50">Logradouro (Rua/Av)</label><input type="text" class="form-control bg-black text-white" id="c_rua"></div>
-                <div class="col-md-2"><label class="text-white-50">Número</label><input type="text" class="form-control bg-black text-white" id="c_num"></div>
-                <div class="col-md-5"><label class="text-white-50">Bairro</label><input type="text" class="form-control bg-black text-white" id="c_bairro"></div>
-                <div class="col-md-5"><label class="text-white-50">Cidade</label><input type="text" class="form-control bg-black text-white" id="c_cidade"></div>
-                <div class="col-md-2"><label class="text-white-50">UF</label><input type="text" class="form-control bg-black text-white text-uppercase" id="c_uf" maxlength="2"></div>
-            </div>
-            <button type="submit" class="btn btn-info w-100 fw-bold mt-3">SALVAR CLIENTE E VALIDAR</button>
-        </form>
-    </div></div></div></div>
+    <div class="modal fade" id="modalCrm" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark border-info">
+                <div class="modal-header border-secondary bg-black">
+                    <h5 class="modal-title text-white fw-bold"><i class="bi bi-person-vcard text-info me-2"></i> Ficha de Cliente (CRM e Portal)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="formCrm" onsubmit="app.salvarClienteCRM(event)">
+                        <input type="hidden" id="crm_id">
+                        
+                        <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3">Dados Pessoais & Fiscais</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-7"><label class="text-white-50 small fw-bold">Nome Completo / Razão Social</label><input type="text" class="form-control bg-black text-white" id="c_nome" required></div>
+                            <div class="col-md-5"><label class="text-white-50 small fw-bold">CPF / CNPJ</label><input type="text" class="form-control bg-black text-warning fw-bold" id="c_doc" onblur="app.validarDocUI(this)"></div>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6"><label class="text-white-50 small fw-bold">WhatsApp / Celular com DDD</label><input type="text" class="form-control bg-black text-white" id="c_tel" required></div>
+                            <div class="col-md-6"><label class="text-white-50 small fw-bold">E-mail Corporativo/Pessoal</label><input type="email" class="form-control bg-black text-white" id="c_email"></div>
+                        </div>
+                        
+                        <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 mt-3">Endereço Físico</h6>
+                        <div class="row g-3 mb-4 p-3 bg-black rounded border border-secondary shadow-sm">
+                            <div class="col-md-3"><label class="text-white-50 small">CEP</label><input type="text" class="form-control bg-dark text-white" id="c_cep" onblur="app.buscarCEP(this.value)"></div>
+                            <div class="col-md-7"><label class="text-white-50 small">Endereço (Rua, Av.)</label><input type="text" class="form-control bg-dark text-white" id="c_rua"></div>
+                            <div class="col-md-2"><label class="text-white-50 small">Nº</label><input type="text" class="form-control bg-dark text-white" id="c_num"></div>
+                            <div class="col-md-6"><label class="text-white-50 small">Bairro</label><input type="text" class="form-control bg-dark text-white" id="c_bairro"></div>
+                            <div class="col-md-6"><label class="text-white-50 small">Cidade / UF</label><input type="text" class="form-control bg-dark text-white" id="c_cidade"></div>
+                        </div>
+                        
+                        <h6 class="text-info border-bottom border-secondary pb-2 mb-3 mt-4"><i class="bi bi-laptop"></i> Acesso Exclusivo ao Portal do Cliente</h6>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6"><label class="text-white-50 small fw-bold">Usuário do Portal (Login)</label><input type="text" class="form-control bg-black text-info fw-bold" id="c_user" placeholder="Ex: email ou CPF do cliente"></div>
+                            <div class="col-md-6"><label class="text-white-50 small fw-bold">Senha de Acesso Gerada Automática</label><input type="text" class="form-control bg-black text-warning fw-bold" id="c_pass" readonly></div>
+                        </div>
 
-    <div class="modal fade" id="modalNF" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content bg-dark border-primary"><div class="modal-header border-secondary bg-black"><h5 class="modal-title text-white fw-bold"><i class="bi bi-receipt me-2 text-primary"></i> Entrada de Nota Fiscal / Estoque</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body p-4">
-        <div class="xml-dropzone mb-4" onclick="document.getElementById('xmlFileInput').click()">
-            <i class="bi bi-filetype-xml display-4 text-primary"></i>
-            <h5 class="text-white mt-2">Clique para importar arquivo XML da NF-e</h5>
-            <p class="text-white-50 small">O sistema extrairá fornecedor, CFOP, NCM e itens automaticamente.</p>
-            <input type="file" id="xmlFileInput" accept=".xml" class="d-none" onchange="processarXML(event)">
+                        <div class="mb-4"><label class="text-white-50 small fw-bold">Anotações Internas (Não visível pro cliente)</label><textarea class="form-control bg-black text-white" id="c_notas" rows="2"></textarea></div>
+                        <button type="submit" class="btn btn-info w-100 fw-bold shadow-lg py-3 text-dark"><i class="bi bi-person-check-fill me-2"></i> GRAVAR FICHA NO CRM</button>
+                    </form>
+                </div>
+            </div>
         </div>
-        <form id="formNF" onsubmit="salvarEntradaEstoque(event)">
-            <div class="row g-3 mb-3">
-                <div class="col-md-6"><label class="text-white-50">Fornecedor / Emitente *</label><input type="text" class="form-control bg-black text-white fw-bold" id="nf_fornecedor" required></div>
-                <div class="col-md-4"><label class="text-white-50">Chave de Acesso / Nº NF *</label><input type="text" class="form-control bg-black text-white" id="nf_numero" required></div>
-                <div class="col-md-2"><label class="text-white-50">Data Emissão</label><input type="date" class="form-control bg-black text-white" id="nf_data" required></div>
+    </div>
+
+    <div class="modal fade" id="modalNF" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content bg-dark border-primary">
+                <div class="modal-header border-secondary bg-black">
+                    <h5 class="modal-title text-white fw-bold"><i class="bi bi-receipt me-2 text-primary"></i> Almoxarifado / Gestão de Compras</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="p-4 bg-info bg-opacity-10 border border-info text-center rounded mb-4 shadow-sm" style="cursor: pointer; border-style: dashed;" onclick="document.getElementById('xmlFileInput').click()">
+                        <i class="bi bi-filetype-xml display-5 text-info mb-2"></i><br>
+                        <strong class="text-white fs-5">Importação Mágica de XML (NF-e)</strong><br>
+                        <small class="text-white-50">O sistema lê o XML e extrai Produtos, CFOP, NCM, Quantidades e Custos automaticamente.</small>
+                        <input type="file" id="xmlFileInput" accept=".xml" class="d-none" onchange="app.processarXML(event)">
+                    </div>
+                    
+                    <form id="formNF" onsubmit="app.salvarEntradaEstoque(event)">
+                        <input type="hidden" id="p_id">
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6"><label class="text-white-50 small fw-bold">Fornecedor / Emitente da Nota</label><input type="text" class="form-control bg-black text-white fw-bold" id="nf_fornecedor" required></div>
+                            <div class="col-md-4"><label class="text-white-50 small fw-bold">Nº do Documento / Nota F.</label><input type="text" class="form-control bg-black text-white" id="nf_numero"></div>
+                            <div class="col-md-2"><label class="text-white-50 small fw-bold">Data Entrada</label><input type="date" class="form-control bg-black text-white" id="nf_data" required></div>
+                        </div>
+                        
+                        <div class="row g-3 mb-4 p-3 bg-black rounded border border-secondary shadow-sm">
+                            <div class="col-md-6">
+                                <label class="text-white-50 small fw-bold text-warning">Como a Oficina vai pagar este estoque?</label>
+                                <select class="form-select bg-dark text-white fw-bold border-secondary" id="nf_metodo_pagamento" onchange="app.verificarPgtoCompraNF()">
+                                    <option value="Boleto - Parcelado">Boleto Fornecedor (A Prazo)</option>
+                                    <option value="Pix">Pix / Dinheiro / À Vista</option>
+                                    <option value="Cartão de Crédito">Cartão de Crédito (Empresa)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6" id="nf_div_parcelas">
+                                <label class="text-danger small fw-bold">Condição de Parcelamento</label>
+                                <select class="form-select bg-dark text-danger border-danger fw-bold" id="nf_parcelas">
+                                    <option value="1x">À vista / Peça Única (1x)</option>
+                                    <option value="2x">2x Parcelas Mensais</option>
+                                    <option value="3x">3x Parcelas Mensais</option>
+                                    <option value="4x">4x Parcelas Mensais</option>
+                                    <option value="6x">6x Parcelas Mensais</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="text-white mb-0"><i class="bi bi-box me-2"></i> Relação de Itens / Peças</h6>
+                            <button type="button" class="btn btn-sm btn-outline-info fw-bold shadow-sm" onclick="app.adicionarLinhaNF()"><i class="bi bi-plus-lg"></i> Inserir Peça Manualmente</button>
+                        </div>
+                        
+                        <div class="table-responsive bg-black border border-secondary p-2 rounded mb-4 shadow-inner">
+                            <table class="table table-dark table-sm align-middle mb-0" id="tabelaItensNF">
+                                <thead><tr><th>Descrição Comercial do Produto</th><th width="100">NCM</th><th width="80">CFOP</th><th width="80">Qtd</th><th width="120">Custo Base Un.</th><th width="120">Venda Base Un.</th><th width="40"></th></tr></thead>
+                                <tbody id="corpoItensNF"></tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input border-warning" type="checkbox" id="nf_gerar_financeiro" checked>
+                                <label class="text-warning fw-bold ms-2 mt-1">Integrar esta compra automaticamente no Contas a Pagar (DRE)</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary fw-bold px-5 py-3 shadow-lg fs-5"><i class="bi bi-arrow-down-circle me-2"></i> CONFIRMAR E ALIMENTAR ESTOQUE</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="d-flex justify-content-between align-items-center mt-4 mb-2">
-                <h6 class="text-white">Itens da Nota Fiscal</h6>
-                <button type="button" class="btn btn-sm btn-outline-info" onclick="adicionarLinhaNF()">+ Adicionar Item Manual</button>
-            </div>
-            <div class="table-responsive bg-black border border-secondary p-2 rounded">
-                <table class="table table-dark table-sm align-middle mb-0" id="tabelaItensNF">
-                    <thead><tr><th>EAN / Cód</th><th>Descrição da Peça</th><th width="100">NCM</th><th width="80">CFOP</th><th width="80">Qtd</th><th width="120">Custo Un.</th><th width="120">Venda Un.</th><th width="40"></th></tr></thead>
-                    <tbody id="corpoItensNF"></tbody>
-                </table>
-            </div>
-            <div class="d-flex justify-content-between align-items-center mt-4">
-                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="nf_gerar_financeiro" checked><label class="text-warning fw-bold ms-2">Lançar valor total no Contas a Pagar (Financeiro)</label></div>
-                <button type="submit" class="btn btn-primary fw-bold px-5 shadow-lg">PROCESSAR ESTOQUE</button>
-            </div>
-        </form>
-    </div></div></div></div>
+        </div>
+    </div>
 
     <div class="modal fade" id="modalOS" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content bg-dark border-info" style="border-width: 2px;">
                 <div class="modal-header border-secondary bg-black p-4">
-                    <h4 class="modal-title text-white fw-bold mb-0"><i class="bi bi-file-earmark-text text-info me-2"></i> Prontuário / O.S. <span id="header_placa" class="text-warning ms-2"></span></h4>
+                    <h4 class="modal-title text-white fw-bold mb-0"><i class="bi bi-file-earmark-text text-info me-2"></i> Prontuário Automotivo Digital <span id="header_placa" class="text-warning ms-2"></span></h4>
                     <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-success d-none shadow-sm fw-bold" id="btnGerarPDF" onclick="exportarPDFMenechelli()"><i class="bi bi-file-pdf-fill me-1"></i> Imprimir Laudo</button>
-                        <button type="button" class="btn btn-sm btn-outline-danger admin-only d-none fw-bold" id="btnDeletarOS" onclick="apagarOS()"><i class="bi bi-trash-fill"></i> Cancelar O.S.</button>
+                        <button type="button" class="btn btn-sm btn-outline-success d-none fw-bold shadow-sm" id="btnGerarPDF" onclick="app.exportarPDFMenechelli()"><i class="bi bi-file-pdf-fill me-1"></i> Exportar Laudo e Audioria</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger admin-only d-none fw-bold shadow-sm" id="btnDeletarOS" onclick="app.apagarOS()"><i class="bi bi-trash-fill"></i> Abortar O.S. (Lixeira)</button>
                         <button type="button" class="btn-close btn-close-white ms-3" data-bs-dismiss="modal"></button>
                     </div>
                 </div>
+                
                 <div class="modal-body p-4" id="conteudoPDF">
                     <form id="formOS">
                         <input type="hidden" id="os_id">
                         
-                        <div class="row g-3 mb-4 p-4 rounded-3" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color);">
-                            <div class="col-md-2"><label class="text-info fw-bold small">PLACA *</label><input type="text" class="form-control bg-black text-white text-uppercase fw-bold border-secondary" id="os_placa" required></div>
-                            <div class="col-md-4"><label class="text-white-50 fw-bold small">VEÍCULO / MODELO *</label><input type="text" class="form-control bg-black text-white border-secondary" id="os_veiculo" required></div>
+                        <div class="row g-3 mb-4 p-4 rounded-3 shadow-sm" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color);">
+                            <div class="col-md-2"><label class="text-info fw-bold small">PLACA *</label><input type="text" class="form-control bg-black text-white text-uppercase fw-bold border-info" id="os_placa" required placeholder="ABC1234"></div>
+                            <div class="col-md-4"><label class="text-white-50 fw-bold small">VEÍCULO / MODELO *</label><input type="text" class="form-control bg-black text-white border-secondary" id="os_veiculo" required placeholder="Ex: VW Gol 1.0"></div>
+                            
                             <div class="col-md-6">
                                 <label class="text-white-50 fw-bold small d-flex justify-content-between">
-                                    <span>CLIENTE (Puxa do CRM)</span>
-                                    <a href="#" class="text-info text-decoration-none" onclick="editarClienteRapido()"><i class="bi bi-pencil-square"></i> Atualizar Dados</a>
+                                    <span>CLIENTE / RESPONSÁVEL (Base CRM)</span>
+                                    <a href="#" class="text-info text-decoration-none fw-bold gestao-only" onclick="app.editarClienteRapido()"><i class="bi bi-pencil-square"></i> Atualizar Dados</a>
                                 </label>
                                 <div class="input-group">
-                                    <input type="text" class="form-control bg-black text-white border-secondary" id="os_cliente" list="listaClientesCRM" autocomplete="off" onchange="aoSelecionarClienteOS()" required placeholder="Digite o nome (Cadastra auto se for novo)">
+                                    <input type="text" class="form-control bg-black text-white border-secondary fw-bold" id="os_cliente" list="listaClientesCRM" autocomplete="off" onchange="app.aoSelecionarClienteOS()" required placeholder="Busque ou digite para cadastrar">
                                     <span class="input-group-text bg-black border-secondary"><i class="bi bi-whatsapp text-success"></i></span>
-                                    <input type="text" class="form-control bg-black text-white border-secondary" id="os_celular" placeholder="Celular" style="max-width: 150px;">
+                                    <input type="text" class="form-control bg-black text-white border-secondary" id="os_celular" placeholder="WhatsApp" style="max-width: 150px;">
                                 </div>
                                 <datalist id="listaClientesCRM"></datalist>
+                                <input type="hidden" id="os_cliente_id">
                                 <input type="hidden" id="os_cliente_cpf">
                             </div>
                             
                             <div class="col-md-12 mt-3">
-                                <label class="text-warning fw-bold small">FLUXO KANBAN (ETAPA ATUAL)</label>
-                                <select class="form-select bg-black text-white fw-bold border-secondary" id="os_status" onchange="verificarStatusLink()">
-                                    <option value="patio">🟢 Fase 1: Avaliação / Recepção Inicial</option>
-                                    <option value="orcamento" class="text-primary">🔵 Fase 2: Orçamento Feito / Aguardando Envio</option>
-                                    <option value="aprovacao" class="text-warning">🟡 Fase 3: Enviado. Aguardando Cliente Aprovar</option>
-                                    <option value="box" class="text-info">🛠️ Fase 4: Aprovado / Carro em Execução (Box)</option>
-                                    <option value="pronto" class="text-success">🟣 Fase 5: Serviço Pronto / Lavagem (Aguard. Retirada)</option>
+                                <label class="text-warning fw-bold small">FLUXO KANBAN (ETAPA DO CARRO NA OFICINA)</label>
+                                <select class="form-select bg-black text-white fw-bold border-secondary p-3" id="os_status" onchange="app.verificarStatusLink()">
+                                    <option value="patio">🟢 Fase 1: Veículo no Pátio / Avaliação Inicial</option>
+                                    <option value="orcamento" class="text-primary">🔵 Fase 2: Orçamento Finalizado (Aguardando Envio)</option>
+                                    <option value="aprovacao" class="text-warning">🟡 Fase 3: Orçamento Enviado. Aguardando Cliente Aprovar no Portal</option>
+                                    <option value="box" class="text-info">🛠️ Fase 4: O.S. Aprovada! / Veículo em Manutenção (Box)</option>
+                                    <option value="pronto" class="text-success">🟣 Fase 5: Serviço Pronto / Aguard. Faturamento e Retirada</option>
                                 </select>
+                            </div>
+
+                            <!-- Campos de Vinculação de Box + Mecânico (visível para gestão) -->
+                            <div class="col-md-6 mt-2 gestao-only">
+                                <label class="text-info fw-bold small"><i class="bi bi-box-seam me-1"></i> Box de Serviço Vinculado</label>
+                                <input type="text" class="form-control bg-black text-info fw-bold border-info" id="os_box_numero" placeholder="Ex: Box 3, Rampa A...">
+                            </div>
+                            <div class="col-md-6 mt-2 gestao-only">
+                                <label class="text-info fw-bold small"><i class="bi bi-person-workspace me-1"></i> Mecânico Responsável</label>
+                                <input type="text" class="form-control bg-black text-info fw-bold border-info" id="os_mecanico_responsavel" placeholder="Nome do Mecânico Responsável" list="listaMecanicosBox">
+                                <datalist id="listaMecanicosBox"></datalist>
                             </div>
                         </div>
 
-                        <ul class="nav nav-tabs border-secondary mb-4" role="tablist">
-                            <li class="nav-item"><button class="nav-link active bg-transparent text-info fw-bold border-secondary border-bottom-0 px-4" data-bs-toggle="tab" data-bs-target="#tabLaudo" type="button"><i class="bi bi-camera me-1"></i> Diagnóstico & Fotos</button></li>
-                            <li class="nav-item"><button class="nav-link bg-transparent text-white-50 border-secondary border-bottom-0 px-4" data-bs-toggle="tab" data-bs-target="#tabChecklist" type="button"><i class="bi bi-ui-checks me-1"></i> Relato & Checklist</button></li>
-                            <li class="nav-item"><button class="nav-link bg-transparent text-white-50 border-secondary border-bottom-0 px-4" data-bs-toggle="tab" data-bs-target="#tabPecas" type="button"><i class="bi bi-tools me-1"></i> Orçamento (Fiscal)</button></li>
-                            <li class="nav-item d-none"><button class="nav-link bg-transparent text-white-50 border-secondary border-bottom-0 px-4" data-bs-toggle="tab" data-bs-target="#tabChat" type="button" onclick="carregarChat()"><i class="bi bi-chat-dots-fill me-1"></i> Chat Direto</button></li>
-                            <li class="nav-item"><button class="nav-link bg-transparent text-white-50 border-secondary border-bottom-0 px-4" data-bs-toggle="tab" data-bs-target="#tabHistorico" type="button"><i class="bi bi-shield-check me-1"></i> Log de Auditoria</button></li>
+                        <div class="alert bg-black border-warning border-2 d-flex justify-content-between align-items-center mb-4 d-none shadow-sm rounded-4" id="alertaLinkCliente">
+                            <div class="text-white-50"><i class="bi bi-link-45deg text-warning fs-4 me-2"></i> <strong>Aguardando Cliente.</strong> Dispare o Link do Portal Web para ele ver os preços, as fotos do defeito e aprovar.</div>
+                            <button type="button" class="btn btn-success fw-bold shadow px-4 py-2" onclick="app.enviarWhatsAppAprovacao()"><i class="bi bi-whatsapp me-2"></i> Enviar Link p/ o Cliente</button>
+                        </div>
+
+                        <ul class="nav nav-tabs border-secondary mb-4" id="prontuarioTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="laudo-tab" data-bs-toggle="tab" data-bs-target="#tabLaudo" type="button" role="tab" aria-controls="tabLaudo" aria-selected="true"><i class="bi bi-camera me-2"></i> Laudo e Fotos</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="check-tab" data-bs-toggle="tab" data-bs-target="#tabChecklist" type="button" role="tab" aria-controls="tabChecklist" aria-selected="false"><i class="bi bi-ui-checks me-2"></i> Queixa & Checklist</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="pecas-tab" data-bs-toggle="tab" data-bs-target="#tabPecas" type="button" role="tab" aria-controls="tabPecas" aria-selected="false"><i class="bi bi-tools me-2"></i> Orçamento Fiscal (R$)</button>
+                            </li>
+                            <li class="nav-item" role="presentation" data-html2canvas-ignore>
+                                <button class="nav-link" id="hist-tab" data-bs-toggle="tab" data-bs-target="#tabHistorico" type="button" role="tab" aria-controls="tabHistorico" aria-selected="false"><i class="bi bi-shield-check me-2"></i> Histórico / Auditoria</button>
+                            </li>
                         </ul>
 
-                        <div class="tab-content">
-                            <div class="tab-pane fade show active" id="tabLaudo">
-                                <div class="mb-4"><label class="form-label text-info fw-bold">Diagnóstico Técnico (Mecânico)</label><textarea class="form-control bg-black text-white border-secondary" id="os_diagnostico" rows="4" placeholder="Descreva os defeitos técnicos confirmados após avaliação..."></textarea></div>
+                        <div class="tab-content" id="prontuarioTabsContent">
+                            <div class="tab-pane fade show active" id="tabLaudo" role="tabpanel" aria-labelledby="laudo-tab">
+                                <div class="mb-4">
+                                    <label class="form-label text-info fw-bold">Diagnóstico Técnico Detalhado (Visão do Mecânico)</label>
+                                    <textarea class="form-control bg-black text-white border-secondary" id="os_diagnostico" rows="4" placeholder="Quais os defeitos encontrados e quais as soluções aplicadas no box?"></textarea>
+                                </div>
                                 <div class="p-4 border border-secondary rounded-3 bg-black" id="areaFotosExport">
                                     <div class="d-flex justify-content-between align-items-center mb-3" data-html2canvas-ignore>
-                                        <h6 class="text-white mb-0"><i class="bi bi-camera text-warning me-2"></i> Evidências Fotográficas do Defeito</h6>
-                                        <button type="button" class="btn btn-warning fw-bold text-dark px-3" id="btnUploadCloudinary"><i class="bi bi-plus"></i> Capturar Imagem</button>
+                                        <h6 class="text-white mb-0"><i class="bi bi-camera text-warning me-2"></i> Evidências Fotográficas do Defeito (Cloudinary)</h6>
+                                        <button type="button" class="btn btn-warning fw-bold text-dark px-3 shadow" id="btnUploadCloudinary"><i class="bi bi-cloud-arrow-up-fill me-1"></i> Capturar Imagem da Avaria</button>
                                     </div>
-                                    <div id="galeriaFotosOS" class="d-flex gap-3 flex-wrap p-2"></div>
+                                    <div id="galeriaFotosOS" class="d-flex gap-3 flex-wrap p-3 border border-secondary rounded bg-dark border-dashed" style="min-height: 160px;"></div>
                                 </div>
                             </div>
                             
-                            <div class="tab-pane fade" id="tabChecklist">
-                                <div class="mb-4"><label class="form-label text-warning fw-bold">Solicitação / Reclamação do Cliente (Queixa Principal)</label><textarea class="form-control bg-black text-warning border-secondary" id="os_relato_cliente" rows="3" placeholder="O que o cliente reclamou que o carro/moto tem?"></textarea></div>
-                                <div class="bg-black p-3 border border-secondary rounded">
-                                    <h6 class="text-white-50">Checklist Visual (Veículo na Entrada)</h6>
-                                    <div class="row g-3 mt-1">
-                                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="chk_combustivel"><label class="form-check-label text-white">Luz Combustível</label></div></div>
-                                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="chk_arranhado"><label class="form-check-label text-white">Veículo Arranhado</label></div></div>
-                                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="chk_bateria"><label class="form-check-label text-white">Bateria Fraca</label></div></div>
-                                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="chk_pneus"><label class="form-check-label text-white">Pneus Desgastados</label></div></div>
+                            <div class="tab-pane fade" id="tabChecklist" role="tabpanel" aria-labelledby="check-tab">
+                                <div class="mb-4">
+                                    <label class="form-label text-warning fw-bold">Solicitação / Reclamação do Cliente na Entrada</label>
+                                    <textarea class="form-control bg-black text-warning border-secondary" id="os_relato_cliente" rows="3" placeholder="O que o cliente reclamou?"></textarea>
+                                </div>
+                                <div class="bg-black p-4 border border-secondary rounded-4 shadow-sm">
+                                    <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3">Checklist Visual Antifraude (Status do Veículo na Recepção)</h6>
+                                    <div class="row g-4 mt-1">
+                                        <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="chk_combustivel"><label class="form-check-label text-white ms-1 fw-bold">Luz Reserva Acesa</label></div></div>
+                                        <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input border-warning" type="checkbox" id="chk_arranhado"><label class="form-check-label text-white ms-1 fw-bold">Carroceria Arranhada</label></div></div>
+                                        <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input border-danger" type="checkbox" id="chk_bateria"><label class="form-check-label text-white ms-1 fw-bold">Bateria Arriada</label></div></div>
+                                        <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="chk_pneus"><label class="form-check-label text-white ms-1 fw-bold">Pneus Desgastados</label></div></div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="tab-pane fade" id="tabPecas">
-                                <div class="d-flex gap-2 mb-4" data-html2canvas-ignore>
-                                    <select class="form-select bg-dark text-white border-secondary" id="selectProdutoEstoque"><option value="">Buscar peça no Estoque Físico / NF...</option></select>
-                                    <button type="button" class="btn btn-primary fw-bold text-nowrap" onclick="adicionarDoEstoque()">Puxar do Estoque</button>
-                                    <button type="button" class="btn btn-outline-info fw-bold ms-3 text-nowrap" onclick="adicionarMaoDeObra()">+ Mão de Obra</button>
+                            <div class="tab-pane fade" id="tabPecas" role="tabpanel" aria-labelledby="pecas-tab">
+                                <div class="d-flex gap-2 mb-4 gestao-only" data-html2canvas-ignore>
+                                    <select class="form-select bg-dark text-white border-secondary p-3" id="selectProdutoEstoque"><option value="">Buscar peça vinculada no Estoque Físico...</option></select>
+                                    <button type="button" class="btn btn-primary fw-bold text-nowrap px-4 shadow" onclick="app.adicionarDoEstoque()"><i class="bi bi-download me-1"></i> Puxar Item</button>
                                 </div>
-                                <div class="table-responsive bg-black border border-secondary p-2 rounded-3">
+                                <button type="button" class="btn btn-outline-info fw-bold mb-3 text-nowrap px-4" onclick="app.adicionarMaoDeObra()" data-html2canvas-ignore><i class="bi bi-person-workspace me-1"></i> Inserir Mão de Obra (Serviço)</button>
+                                
+                                <div class="table-responsive bg-black border border-secondary p-2 rounded-3 shadow-inner">
                                     <table class="table table-dark table-sm align-middle mb-0" id="tabelaPecas">
-                                        <thead><tr><th class="ps-2">Descrição (Peça ou Serviço)</th><th width="100">NCM/CFOP</th><th width="80">Qtd</th><th class="admin-only" width="130">Custo/Un</th><th width="130">Venda/Un</th><th width="130">Total(R$)</th><th width="50" data-html2canvas-ignore></th></tr></thead>
+                                        <thead>
+                                            <tr>
+                                                <th class="ps-3 py-2">Descrição (Peça ou Serviço)</th>
+                                                <th width="100">NCM/CFOP</th>
+                                                <th width="90">Qtd</th>
+                                                <th class="gestao-only" width="130">Custo/Un</th>
+                                                <th width="140">Venda/Un</th>
+                                                <th width="140">Total(R$)</th>
+                                                <th width="50" data-html2canvas-ignore></th>
+                                            </tr>
+                                        </thead>
                                         <tbody id="listaPecasCorpo"></tbody>
                                     </table>
                                 </div>
-                                <div class="text-end mt-4 p-3 bg-dark rounded-3 border border-success d-inline-block float-end">
-                                    <h4 class="text-white mb-0">Total: <span class="text-success fw-bold ms-3" id="os_total_geral">R$ 0,00</span></h4>
-                                </div><div class="clearfix"></div>
+                                <div class="text-end mt-4 p-3 bg-dark rounded-4 border border-success d-inline-block float-end shadow-lg">
+                                    <h3 class="text-white mb-0 fs-5">Valor Total do Orçamento: <span class="text-success fw-bold ms-3 display-6" id="os_total_geral">R$ 0,00</span></h3>
+                                </div>
+                                <div class="clearfix"></div>
                             </div>
                             
-                            <div class="tab-pane fade" id="tabHistorico" data-html2canvas-ignore><div class="p-4 bg-black rounded-3 border border-secondary" style="min-height: 300px;"><h5 class="text-white border-bottom border-secondary pb-2 mb-3"><i class="bi bi-shield-check text-success me-2"></i> Log Operacional Contínuo</h5><ul class="timeline text-white-50" id="listaHistorico"></ul></div></div>
+                            <div class="tab-pane fade" id="tabHistorico" role="tabpanel" aria-labelledby="hist-tab" data-html2canvas-ignore>
+                                <div class="p-4 bg-black rounded-4 border border-secondary shadow-inner" style="min-height: 300px;">
+                                    <h5 class="text-white border-bottom border-secondary pb-3 mb-4"><i class="bi bi-clock-history text-success me-2"></i> Trilha de Auditoria (Timeline Imutável)</h5>
+                                    <p class="text-white-50 small mb-4">Todas as interações, orçamentos e alterações de status são registradas com a assinatura do usuário (dia e hora), garantindo segurança total.</p>
+                                    <ul class="timeline text-white-50" id="listaHistorico"></ul>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
-                <div class="modal-footer border-secondary bg-black p-4 d-flex justify-content-between">
-                    <div><button type="button" class="btn btn-success fw-bold shadow-lg d-none px-4" id="btnFaturar" onclick="abrirFaturamentoOS()"><i class="bi bi-cash-coin me-2"></i> FATURAR E ENTREGAR VEÍCULO</button></div>
-                    <button type="button" class="btn btn-info fw-bold shadow-lg px-5" onclick="salvarOS()"><i class="bi bi-floppy-fill me-2"></i> SALVAR REGISTRO NO PÁTIO</button>
+                
+                <div class="modal-footer border-secondary bg-black p-4 d-flex justify-content-between rounded-bottom-3">
+                    <div>
+                        <button type="button" class="btn btn-success fw-bold shadow-lg d-none px-5 py-3 fs-5 gestao-only" id="btnFaturar" onclick="app.abrirFaturamentoOS()"><i class="bi bi-cart-check-fill me-2"></i> REALIZAR CHECKOUT E FATURAR VEÍCULO</button>
+                    </div>
+                    <button type="button" class="btn btn-info fw-bold shadow-lg px-5 py-3 fs-5 text-dark" onclick="app.salvarOS()"><i class="bi bi-floppy-fill me-2"></i> SALVAR DADOS NO KANBAN</button>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="modal fade" id="modalFaturamento" tabindex="-1" style="z-index: 1060;">
-        <div class="modal-dialog"><div class="modal-content bg-dark border-success"><div class="modal-header bg-black border-secondary"><h5 class="modal-title text-success fw-bold">Faturamento de Entrega (DRE)</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body p-4 text-center">
-            <h2 class="text-success fw-bold mb-4" id="fat_valor_total">R$ 0,00</h2>
-            <div class="text-start mb-3"><label class="text-white-50">Forma de Pagamento</label><select class="form-select bg-black text-white" id="fat_metodo"><option value="Pix">Pix / Dinheiro</option><option value="Cartao Credito">Cartão de Crédito</option><option value="Cartao Debito">Cartão de Débito</option><option value="Boleto">Boleto a Prazo</option></select></div>
-            <div class="text-start mb-4"><label class="text-white-50">Parcelamento</label><select class="form-select bg-black text-white" id="fat_parcelas"><option value="1">1x</option><option value="2">2x</option><option value="3">3x</option><option value="12">12x</option></select></div>
-            <button type="button" class="btn btn-success w-100 fw-bold fs-5 py-3 shadow" onclick="processarFaturamentoCompleto()">FATURAR, DAR BAIXA NF E ARQUIVAR O.S.</button>
-        </div></div></div>
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark border-success">
+                <div class="modal-header bg-black border-secondary p-4">
+                    <h5 class="modal-title text-success fw-bold"><i class="bi bi-cash-coin me-2"></i> Caixa / Recebimento da O.S.</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-5 text-center">
+                    <p class="text-white-50 mb-1 fw-bold text-uppercase">Valor Total Faturado</p>
+                    <h1 class="text-success fw-bold mb-5 display-4" id="fat_valor_total">R$ 0,00</h1>
+                    
+                    <div class="text-start mb-4">
+                        <label class="text-white-50 fw-bold mb-2">Método de Liquidação do Cliente</label>
+                        <select class="form-select bg-black text-white fw-bold border-success p-3 fs-5" id="fat_metodo">
+                            <option value="Pix">Pix / Transferência Bancária</option>
+                            <option value="Dinheiro">Dinheiro Espécie</option>
+                            <option value="Cartao Credito">Cartão de Crédito</option>
+                            <option value="Cartao Debito">Cartão de Débito</option>
+                            <option value="Boleto">Boleto (A Prazo)</option>
+                            <option value="Crediario">Crediário da Loja</option>
+                        </select>
+                    </div>
+                    
+                    <div class="text-start mb-5">
+                        <label class="text-warning fw-bold mb-2">Condição de Parcelamento (Gera N títulos no DRE)</label>
+                        <select class="form-select bg-black text-warning fw-bold border-warning p-3" id="fat_parcelas">
+                            <option value="1">À Vista / Parcela Única (1x)</option>
+                            <option value="2">2x</option><option value="3">3x</option><option value="4">4x</option><option value="5">5x</option><option value="6">6x</option><option value="10">10x</option><option value="12">12x</option>
+                        </select>
+                    </div>
+                    
+                    <button type="button" class="btn btn-success w-100 fw-bold fs-5 py-4 shadow-lg" onclick="app.processarFaturamentoCompleto()"><i class="bi bi-rocket-fill me-2"></i> CONFIRMAR PAGTO E ARQUIVAR O.S.</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="modal fade" id="modalFin" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary" id="modalFinContent"><div class="modal-header bg-black"><h5 class="modal-title fw-bold" id="fin_titulo">Lançamento Financeiro</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body p-4"><form id="formFinanceiro" onsubmit="salvarLancamentoFinanceiro(event)"><input type="hidden" id="fin_tipo"><div class="mb-3"><label class="text-white-50">Fornecedor / Motivo / Cliente</label><input type="text" class="form-control bg-black text-white" id="fin_desc" required></div><div class="row g-3 mb-3"><div class="col-6"><label class="text-white-50">Valor (R$)</label><input type="number" step="0.01" class="form-control bg-black fw-bold" id="fin_valor" required></div><div class="col-6"><label class="text-white-50">Data 1º Venc.</label><input type="date" class="form-control bg-black text-white" id="fin_data" required></div></div><div class="mb-4" id="divParcelas"><label class="text-white-50">Parcelamento</label><select class="form-select bg-black text-white" id="fin_parcelas"><option value="1">1x</option><option value="2">2x</option><option value="3">3x</option><option value="6">6x</option><option value="12">12x</option></select></div><button type="submit" class="btn w-100 fw-bold" id="btnSalvarFin">PROCESSAR</button></form></div></div></div></div>
+    <div class="modal fade" id="modalFin" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark border-secondary" id="modalFinContent">
+                <div class="modal-header bg-black border-secondary p-4">
+                    <h5 class="modal-title fw-bold" id="fin_titulo">Lançamento Financeiro</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="formFinanceiro" onsubmit="app.salvarLancamentoFinanceiro(event)">
+                        <input type="hidden" id="fin_id">
+                        <input type="hidden" id="fin_tipo">
+                        
+                        <div class="mb-3">
+                            <label class="text-white-50 small fw-bold">Descrição / Fornecedor / Cliente / Origem</label>
+                            <input type="text" class="form-control bg-black text-white fw-bold" id="fin_desc" required>
+                        </div>
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-6"><label class="text-white-50 small fw-bold">Valor (R$)</label><input type="number" step="0.01" class="form-control bg-black fw-bold text-info" id="fin_valor" required></div>
+                            <div class="col-6"><label class="text-white-50 small fw-bold">Data de Vencimento</label><input type="date" class="form-control bg-black text-white" id="fin_data" required></div>
+                        </div>
+                        
+                        <div class="row g-3 mb-4 p-3 bg-black border border-secondary rounded shadow-sm">
+                            <div class="col-md-12">
+                                <label class="text-white-50 small fw-bold">Forma de Pagamento</label>
+                                <select class="form-select bg-dark text-white fw-bold" id="fin_metodo" onchange="app.verificarPgtoFinManual()">
+                                    <option value="Pix">Pix / Transferência Bancária</option>
+                                    <option value="Dinheiro">Dinheiro Espécie</option>
+                                    <option value="Cartão de Débito">Cartão de Débito</option>
+                                    <option value="Cartão de Crédito - À Vista">Cartão Crédito (À Vista)</option>
+                                    <option value="Cartão de Crédito - Parcelado">Cartão Crédito (Parcelado)</option>
+                                    <option value="Boleto - À Vista">Boleto Bancário (À Vista)</option>
+                                    <option value="Boleto - Parcelado">Boleto Bancário (Parcelado)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-12" id="divParcelas">
+                                <label class="text-warning small fw-bold">Dividir Lançamento em Parcelas?</label>
+                                <select class="form-select bg-dark text-warning border-warning" id="fin_parcelas">
+                                    <option value="1">Não Dividir (Lançamento Único 1x)</option>
+                                    <option value="2">Dividir em 2x (Mensal)</option><option value="3">Dividir em 3x (Mensal)</option><option value="4">Dividir em 4x (Mensal)</option><option value="6">Dividir em 6x (Mensal)</option><option value="12">Dividir em 12x (Mensal)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-12 mt-3 pt-3 border-top border-secondary" id="divStatusEdit" style="display:none;">
+                                <label class="text-info fw-bold small text-uppercase"><i class="bi bi-check-circle me-1"></i> Alterar Status do Título (Baixa/Quitação)</label>
+                                <select class="form-select bg-dark text-white fw-bold border-info p-3" id="fin_status">
+                                    <option value="pendente" class="text-warning">Em Aberto / Pendente (Aguardando Pagto)</option>
+                                    <option value="pago" class="text-success">QUITADO / PAGO (Título Baixado no Caixa)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-info w-100 fw-bold py-3 text-dark shadow-sm" id="btnSalvarFin"><i class="bi bi-save2-fill me-2"></i> INJETAR OPERAÇÃO NO DRE</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <audio id="audioAlerta" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <div class="modal fade" id="modalEquipe" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark border-secondary">
+                <div class="modal-header bg-black p-4">
+                    <h5 class="modal-title text-white fw-bold"><i class="bi bi-person-badge me-2"></i> Nova Credencial de Colaborador</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="formEquipe" onsubmit="app.salvarFuncionario(event)">
+                        <input type="hidden" id="f_id">
+                        <div class="mb-3"><label class="text-white-50 small fw-bold">Nome do Profissional</label><input type="text" class="form-control bg-black text-white" id="f_nome" required></div>
+                        <div class="mb-3">
+                            <label class="text-white-50 small fw-bold">Cargo / Nível de Acesso (RBAC)</label>
+                            <select class="form-select bg-black text-white fw-bold" id="f_cargo" required>
+                                <option value="equipe">Mecânico / Técnico (Acesso Cego: Apenas Produção e Kanban)</option>
+                                <option value="gerente">Gerente / Atendimento (Acesso Full: Preços de Custo, DRE, Estoque)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-6"><label class="text-warning small fw-bold">Comissão M.O. (%)</label><input type="number" step="0.1" class="form-control bg-black text-warning fw-bold fs-5" id="f_comissao_mo" required placeholder="Ex: 40"></div>
+                            <div class="col-6"><label class="text-success small fw-bold">Comissão Peças (%)</label><input type="number" step="0.1" class="form-control bg-black text-success fw-bold fs-5" id="f_comissao_pecas" required placeholder="Ex: 5"></div>
+                        </div>
+                        
+                        <div class="row g-3 mb-4 p-3 bg-black rounded border border-secondary shadow-sm">
+                            <h6 class="text-info border-bottom border-secondary pb-2 mb-2 w-100"><i class="bi bi-fingerprint me-2"></i> Credenciais Seguras na Nuvem</h6>
+                            <div class="col-6"><label class="text-white-50 small">Usuário de Login</label><input type="text" class="form-control bg-dark text-info fw-bold" id="f_user" required></div>
+                            <div class="col-6"><label class="text-white-50 small">Senha de Acesso</label><input type="text" class="form-control bg-dark text-warning fw-bold" id="f_pass" required></div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success w-100 fw-bold py-3 shadow">SALVAR COLABORADOR</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         MODAL: VINCULAR BOX + MECÂNICO (PÓS-APROVAÇÃO DO ORÇAMENTO)
+         Aparece quando o gestor arrasta o card de "Aprovação" para "Box"
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalVincularBox" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark border-info" style="border-width: 2px;">
+                <div class="modal-header border-secondary bg-black p-4">
+                    <h5 class="modal-title text-white fw-bold mb-0"><i class="bi bi-box-seam text-info me-2"></i> Vincular Box de Serviço e Mecânico</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" id="vbox_osId">
+                    
+                    <div class="alert bg-info bg-opacity-10 border border-info rounded-3 mb-4">
+                        <p class="text-white mb-0 fw-bold"><i class="bi bi-check-circle-fill text-info me-2"></i> Orçamento Aprovado pelo Cliente!</p>
+                        <p class="text-white-50 small mb-0 mt-1">Defina o box de serviço e o mecânico responsável antes de mover o veículo para a etapa de execução. O cliente será notificado automaticamente no WhatsApp.</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="text-info fw-bold mb-2"><i class="bi bi-box-seam me-1"></i> Box / Baia de Serviço</label>
+                        <input type="text" class="form-control bg-black text-white fw-bold border-info p-3 fs-5" id="vbox_box" placeholder="Ex: Box 1, Box 2, Rampa A, Fossa B..." required>
+                        <small class="text-white-50">Informe o box ou a baia onde o veículo será trabalhado.</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="text-info fw-bold mb-2"><i class="bi bi-person-workspace me-1"></i> Mecânico Responsável</label>
+                        <select class="form-select bg-black text-white fw-bold border-info p-3 fs-5" id="vbox_mecanico">
+                            <option value="">-- Selecione o Mecânico Responsável --</option>
+                        </select>
+                        <small class="text-white-50 d-block mt-1">Não está na lista?</small>
+                        <input type="text" class="form-control bg-black text-white border-secondary mt-2" id="vbox_mecanico_texto" placeholder="Ou digite o nome do mecânico manualmente...">
+                    </div>
+
+                    <button type="button" class="btn btn-info w-100 fw-bold py-3 shadow-lg fs-5 text-dark" onclick="app.confirmarVincularBox()">
+                        <i class="bi bi-tools me-2"></i> CONFIRMAR E MOVER PARA BOX (EXECUÇÃO)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-container" id="toastContainer"></div>
+    <audio id="audioAlerta" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // CONFIGURAÇÕES BASE
-        const firebaseConfig = { apiKey: "AIzaSyBqIuCsHHuy_f-mBWV4JBkbyOorXpqQvqg", authDomain: "hub-thiaguinho.firebaseapp.com", projectId: "hub-thiaguinho", storageBucket: "hub-thiaguinho.firebasestorage.app", messagingSenderId: "453508098543", appId: "1:453508098543:web:305f4d48edd9be40bd6e1a" };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        const CLOUDINARY_CLOUD_NAME = sessionStorage.getItem('t_cloudName'); const CLOUDINARY_UPLOAD_PRESET = sessionStorage.getItem('t_cloudPreset'); const API_KEY_GEMINI = sessionStorage.getItem('t_gemini');
-        const t_id = sessionStorage.getItem('t_id'); const t_nome = sessionStorage.getItem('t_nome'); const t_role = sessionStorage.getItem('t_role'); const user_nome = sessionStorage.getItem('f_nome');
-        
-        if (!t_id) window.location.replace('index.html');
-
-        let bancoOSCompleto = []; let bancoEstoque = []; let bancoCrm = []; let bancoIA = []; let fotosOSAtual = []; let historicoOSAtual = []; let bancoFin = [];
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('lblEmpresa').innerText = t_nome; document.getElementById('lblUsuario').innerText = user_nome;
-            if (t_role === 'equipe') { const style = document.createElement('style'); style.innerHTML = '.admin-only { display: none !important; } .mecanico-only { display: flex !important;}'; document.head.appendChild(style); }
-            
-            mostrarTela('tela_dashboard', 'Central Operacional Automotiva');
-            
-            iniciarEscutaOS();
-            iniciarEscutaCrm();
-            iniciarEscutaEstoque();
-            iniciarEscutaIA();
-            if(t_role === 'admin') { iniciarEscutaFinanceiro(); iniciarEscutaLixeira(); }
-            configurarCloudinary();
-        });
-
-        function showToast(msg, type='success') {
-            const bg = type === 'success' ? 'bg-success' : type === 'warning' ? 'bg-warning text-dark' : 'bg-danger';
-            const t = document.createElement('div'); t.innerHTML = `<div class="toast align-items-center text-white ${bg} border-0 show p-3 mt-2 shadow-lg rounded-3"><div class="d-flex"><div class="toast-body fw-bold">${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
-            document.getElementById('toastContainer').appendChild(t.firstChild); setTimeout(() => { if(t.firstChild) t.firstChild.remove() }, 5000);
-        }
-        function sair() { sessionStorage.clear(); window.location.href = 'index.html'; }
-
-        function mostrarTela(id, titulo) {
-            document.querySelectorAll('.modulo-tela').forEach(t => t.style.display = 'none');
-            document.getElementById(id).style.display = 'block'; document.getElementById('tituloPagina').innerText = titulo;
-        }
-
-        // ======================= MÓDULO I: VALIDAÇÃO DE CPF E CRM REVERSO =======================
-        function validarCPF(cpf) {
-            cpf = cpf.replace(/[^\d]+/g,''); if(cpf == '') return false;
-            if (cpf.length != 11 || cpf == "00000000000" || cpf == "11111111111" || cpf == "22222222222" || cpf == "33333333333" || cpf == "44444444444" || cpf == "55555555555" || cpf == "66666666666" || cpf == "77777777777" || cpf == "88888888888" || cpf == "99999999999") return false;
-            let add = 0; for (let i=0; i < 9; i ++) add += parseInt(cpf.charAt(i)) * (10 - i);
-            let rev = 11 - (add % 11); if (rev == 10 || rev == 11) rev = 0; if (rev != parseInt(cpf.charAt(9))) return false;
-            add = 0; for (let i = 0; i < 10; i ++) add += parseInt(cpf.charAt(i)) * (11 - i);
-            rev = 11 - (add % 11); if (rev == 10 || rev == 11) rev = 0; if (rev != parseInt(cpf.charAt(10))) return false;
-            return true;
-        }
-
-        function validarDocUI(input) {
-            const val = input.value.replace(/\D/g, '');
-            if(val.length === 11) {
-                if(!validarCPF(val)) { showToast("CPF Inválido. Corrija para salvar.", "error"); input.classList.add('border-danger'); input.classList.remove('border-warning'); } 
-                else { input.classList.remove('border-danger'); input.classList.add('border-success'); showToast("CPF Válido.", "success");}
-            } else if(val.length > 11) {
-                 input.classList.remove('border-danger'); input.classList.add('border-success'); // Ignora se for CNPJ para simplificar
-            }
-        }
-
-        function buscarCEP(cep) {
-            cep = cep.replace(/\D/g, ''); if(cep.length !== 8) return;
-            fetch(`https://viacep.com.br/ws/${cep}/json/`).then(res => res.json()).then(data => {
-                if(!data.erro) { document.getElementById('c_rua').value = data.logradouro; document.getElementById('c_bairro').value = data.bairro; document.getElementById('c_cidade').value = data.localidade; document.getElementById('c_uf').value = data.uf; }
-            });
-        }
-
-        function iniciarEscutaCrm() {
-            db.collection('clientes_base').where('tenantId', '==', t_id).onSnapshot(snap => {
-                bancoCrm = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const tb = document.getElementById('tabelaCrmCorpo');
-                if(tb) tb.innerHTML = bancoCrm.map(c => `<tr><td><strong class="text-white">${c.nome}</strong></td><td>${c.telefone}</td><td>${c.documento||'-'}</td><td><small class="text-white-50">${c.anotacoes||'-'}</small></td><td class="admin-only text-end"><button class="btn btn-sm btn-outline-info me-1 border-0" onclick="abrirModalCRM('edit', '${c.id}')"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger border-0" onclick="apagarCliente('${c.id}')"><i class="bi bi-trash"></i></button></td></tr>`).join('');
-                const list = document.getElementById('listaClientesCRM');
-                if(list) list.innerHTML = bancoCrm.map(c => `<option value="${c.nome}">Tel: ${c.telefone}</option>`).join('');
-            });
-        }
-        
-        function abrirModalCRM(mode = 'nova', id = '') {
-            document.getElementById('formCrm').reset(); document.getElementById('crm_id').value = '';
-            if(mode === 'edit') {
-                const c = bancoCrm.find(x => x.id === id);
-                if(c) { document.getElementById('crm_id').value = c.id; document.getElementById('c_nome').value = c.nome; document.getElementById('c_tel').value = c.telefone; document.getElementById('c_doc').value = c.documento||''; document.getElementById('c_email').value = c.email||''; document.getElementById('c_notas').value = c.anotacoes||''; }
-            }
-            new bootstrap.Modal(document.getElementById('modalCrm')).show();
-        }
-
-        async function salvarClienteCRM(e) {
-            e.preventDefault(); const id = document.getElementById('crm_id').value;
-            const doc = document.getElementById('c_doc').value.replace(/\D/g, '');
-            if(doc.length === 11 && !validarCPF(doc)) { showToast("O CPF é inválido matematicamente. Impossível salvar.", "error"); return; }
-            
-            const p = { tenantId: t_id, nome: document.getElementById('c_nome').value, telefone: document.getElementById('c_tel').value, documento: doc, email: document.getElementById('c_email').value, cep: document.getElementById('c_cep').value, rua: document.getElementById('c_rua').value, num: document.getElementById('c_num').value, bairro: document.getElementById('c_bairro').value, cidade: document.getElementById('c_cidade').value, uf: document.getElementById('c_uf').value, anotacoes: document.getElementById('c_notas').value };
-            if(id) { await db.collection('clientes_base').doc(id).update(p); showToast("Cliente atualizado."); } else { await db.collection('clientes_base').add(p); showToast("Cliente salvo com sucesso."); }
-            e.target.reset(); bootstrap.Modal.getInstance(document.getElementById('modalCrm')).hide();
-            
-            // Se ele chamou o modal de dentro da OS, preenche o campo lá e puxa o foco
-            if(document.getElementById('os_cliente').value === '') {
-                document.getElementById('os_cliente').value = p.nome; document.getElementById('os_celular').value = p.telefone;
-            }
-        }
-        async function apagarCliente(id) { if(confirm("Apagar cliente? O histórico de O.S dele será mantido.")) await db.collection('clientes_base').doc(id).delete(); }
-
-        // Mágica CRM na OS (Se não achar, cria na hora)
-        function aoSelecionarClienteOS() {
-            const nomeDigitado = document.getElementById('os_cliente').value.trim();
-            const cliente = bancoCrm.find(c => c.nome.toLowerCase() === nomeDigitado.toLowerCase());
-            if(cliente) { 
-                document.getElementById('os_celular').value = cliente.telefone || ''; 
-                document.getElementById('os_cliente_cpf').value = cliente.documento || ''; 
-            }
-        }
-
-        function editarClienteRapido() {
-            const nome = document.getElementById('os_cliente').value.trim();
-            const cliente = bancoCrm.find(c => c.nome.toLowerCase() === nome.toLowerCase());
-            if(cliente) { abrirModalCRM('edit', cliente.id); } 
-            else { document.getElementById('c_nome').value = nome; abrirModalCRM('nova'); } // Já joga o nome pro modal
-        }
-
-        // =====================================================================
-        // MÓDULO II: ESTOQUE (IMPORTAÇÃO DE XML DE NOTA FISCAL E IMPOSTOS)
-        // =====================================================================
-        function iniciarEscutaEstoque() {
-            db.collection('estoque').where('tenantId', '==', t_id).onSnapshot(snap => {
-                bancoEstoque = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const tbody = document.getElementById('tabelaEstoqueCorpo');
-                if(tbody) tbody.innerHTML = bancoEstoque.map(p => `<tr><td><small class="text-white-50">${p.fornecedor||'N/A'}</small><br><span class="badge bg-primary">NF: ${p.nf||'S/N'}</span></td><td><span class="text-info small">[${p.cfop||'-'}]</span> <strong class="text-white">${p.desc}</strong></td><td><span class="badge bg-secondary px-3 py-2 fs-6 shadow-sm">${p.qtd} un</span></td><td class="admin-only text-danger fw-bold">R$ ${p.custo.toFixed(2)}</td><td class="text-success fw-bold fs-6">R$ ${p.venda.toFixed(2)}</td><td class="admin-only text-end"><button class="btn btn-sm btn-outline-danger shadow-sm" onclick="apagarProduto('${p.id}')"><i class="bi bi-trash-fill"></i></button></td></tr>`).join('');
-                const sel = document.getElementById('selectProdutoEstoque');
-                if(sel) sel.innerHTML = '<option value="">Puxar Peça / NF do Almoxarifado...</option>' + bancoEstoque.filter(p=>p.qtd>0).map(p => `<option value="${p.id}" data-venda="${p.venda}" data-custo="${p.custo}" data-desc="${p.desc}" data-cfop="${p.cfop||'-'}" data-ncm="${p.ncm||'-'}">[Estoque: ${p.qtd}] - ${p.desc} (R$ ${p.venda.toFixed(2)})</option>`).join('');
-            });
-        }
-
-        function abrirModalNF() {
-            document.getElementById('formNF').reset(); document.getElementById('corpoItensNF').innerHTML = '';
-            document.getElementById('nf_data').value = new Date().toISOString().split('T')[0];
-            new bootstrap.Modal(document.getElementById('modalNF')).show();
-        }
-
-        // LÊ O XML DA NFE E POPULA A TABELA 
-        function processarXML(event) {
-            const file = event.target.files[0]; if(!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const xmlText = e.target.result; const parser = new DOMParser(); const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                
-                // Extrai Fornecedor e NF
-                const emit = xmlDoc.getElementsByTagName("emit")[0]; if(emit) { const xNome = emit.getElementsByTagName("xNome")[0]; if(xNome) document.getElementById('nf_fornecedor').value = xNome.textContent; }
-                const ide = xmlDoc.getElementsByTagName("ide")[0]; if(ide) { const nNF = ide.getElementsByTagName("nNF")[0]; if(nNF) document.getElementById('nf_numero').value = nNF.textContent; }
-
-                // Extrai Itens
-                const det = xmlDoc.getElementsByTagName("det");
-                for(let i=0; i<det.length; i++) {
-                    const prod = det[i].getElementsByTagName("prod")[0];
-                    if(prod) {
-                        const desc = prod.getElementsByTagName("xProd")[0]?.textContent || '';
-                        const ncm = prod.getElementsByTagName("NCM")[0]?.textContent || '';
-                        const cfop = prod.getElementsByTagName("CFOP")[0]?.textContent || '';
-                        const ean = prod.getElementsByTagName("cEAN")[0]?.textContent || '';
-                        const qtd = parseFloat(prod.getElementsByTagName("qCom")[0]?.textContent || 0);
-                        const vUnCom = parseFloat(prod.getElementsByTagName("vUnCom")[0]?.textContent || 0);
-                        // Joga na tabela pra edição rápida de venda
-                        adicionarLinhaNF(ean, desc, ncm, cfop, qtd, vUnCom, (vUnCom * 2)); // Sugere margem 100%
-                    }
-                }
-                showToast("XML processado. Revise os preços de venda antes de salvar.", "success");
-            };
-            reader.readAsText(file);
-        }
-
-        function adicionarLinhaNF(ean='', desc='', ncm='', cfop='', qtd=1, custo=0, venda=0) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-1 it-ean" value="${ean}"></td><td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-1 it-desc" value="${desc}"></td><td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-1 it-ncm" value="${ncm}"></td><td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-1 it-cfop" value="${cfop}"></td><td><input type="number" class="form-control form-control-sm bg-dark text-white border-secondary p-1 it-qtd" value="${qtd}"></td><td><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-danger border-secondary p-1 it-custo" value="${custo}"></td><td><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-success border-secondary p-1 it-venda fw-bold" value="${venda}"></td><td><button type="button" class="btn btn-sm btn-outline-danger p-1 border-0" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>`;
-            document.getElementById('corpoItensNF').appendChild(tr);
-        }
-
-        async function salvarEntradaEstoque(e) {
-            e.preventDefault();
-            const fornecedor = document.getElementById('nf_fornecedor').value; const nf = document.getElementById('nf_numero').value;
-            const gerarPagamento = document.getElementById('nf_gerar_financeiro').checked;
-            
-            let totalCustoNF = 0; const batch = db.batch();
-            
-            document.querySelectorAll('#corpoItensNF tr').forEach(tr => {
-                const desc = tr.querySelector('.it-desc').value.trim();
-                const q = parseFloat(tr.querySelector('.it-qtd').value)||0; const c = parseFloat(tr.querySelector('.it-custo').value)||0; const v = parseFloat(tr.querySelector('.it-venda').value)||0;
-                if(desc !== '' && q > 0) {
-                    totalCustoNF += (q * c);
-                    const p = { tenantId: t_id, fornecedor: fornecedor, nf: nf, ean: tr.querySelector('.it-ean').value, ncm: tr.querySelector('.it-ncm').value, cfop: tr.querySelector('.it-cfop').value, desc: desc, qtd: q, custo: c, venda: v, usuarioEntrada: user_nome, dataEntrada: new Date().toISOString() };
-                    batch.set(db.collection('estoque').doc(), p);
-                }
-            });
-
-            if(gerarPagamento && totalCustoNF > 0) {
-                batch.set(db.collection('financeiro').doc(), { tenantId: t_id, tipo: 'despesa', desc: `Nota Fiscal Fornecedor: ${fornecedor} (NF: ${nf})`, valor: totalCustoNF, parcelaAtual: 1, totalParcelas: 1, metodo: 'Boleto/Pix', vencimento: new Date(document.getElementById('nf_data').value).toISOString(), status: 'pendente' });
-            }
-            
-            await batch.commit(); showToast("Nota Fiscal importada com sucesso para o Estoque!");
-            bootstrap.Modal.getInstance(document.getElementById('modalNF')).hide(); e.target.reset();
-        }
-        async function apagarProduto(id) { if(confirm("Deseja apagar o registro desta peça do estoque?")) await db.collection('estoque').doc(id).delete(); }
-
-        // =====================================================================
-        // MÓDULO III: O.S., KANBAN E CHEVRON FAST ACTIONS
-        // =====================================================================
-        function iniciarEscutaOS() {
-            db.collection('ordens_servico').where('tenantId', '==', t_id).onSnapshot(snap => {
-                bancoOSCompleto = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderizarKanban(); renderizarTabelaArquivo();
-                if(t_role === 'admin') renderizarFinanceiroGeral();
-            });
-        }
-        function filtrarGlobal() { renderizarKanban(); renderizarTabelaArquivo(); }
-
-        function renderizarKanban() {
-            const t = document.getElementById('buscaGeral').value.toLowerCase().trim();
-            let ativos = bancoOSCompleto.filter(os => os.status !== 'entregue');
-            if(t) ativos = ativos.filter(os => (os.placa&&os.placa.toLowerCase().includes(t)) || (os.cliente&&os.cliente.toLowerCase().includes(t)));
-
-            const cols = { patio: '', orcamento: '', aprovacao: '', box: '', pronto: '' };
-            let counts = { patio: 0, orcamento: 0, aprovacao: 0, box: 0, pronto: 0 };
-            const ordem = ['patio', 'orcamento', 'aprovacao', 'box', 'pronto'];
-
-            ativos.forEach(os => {
-                const s = os.status || 'patio'; counts[s]++;
-                let cor = s === 'pronto' ? 'border-success' : s === 'aprovacao' ? 'border-warning' : s === 'box' ? 'border-info' : s === 'orcamento' ? 'border-primary' : 'border-secondary';
-                
-                const idx = ordem.indexOf(s);
-                const nextS = idx < ordem.length-1 ? ordem[idx+1] : null;
-                const prevS = idx > 0 ? ordem[idx-1] : null;
-                
-                // Chevron Logic: Voltar e Avançar com clique rápido
-                let btnBack = prevS ? `<button class="btn btn-sm btn-dark p-1 px-2 border-secondary shadow-sm me-1" onclick="event.stopPropagation(); mudarStatusRapido('${os.id}', '${prevS}')" title="Recuar Fase"><i class="bi bi-arrow-left-circle text-white-50"></i></button>` : '';
-                let btnFwd = s === 'pronto' ? `<button class="btn btn-sm btn-success p-1 px-3 shadow fw-bold" onclick="event.stopPropagation(); abrirFaturamentoDireto('${os.id}')"><i class="bi bi-cash-coin me-1"></i> FATURAR</button>` : `<button class="btn btn-sm btn-dark p-1 px-2 border-secondary shadow-sm" onclick="event.stopPropagation(); mudarStatusRapido('${os.id}', '${nextS}')" title="Avançar Fase"><i class="bi bi-arrow-right-circle text-info"></i></button>`;
-
-                cols[s] += `<div class="os-card border-start border-4 ${cor}" onclick="abrirModalOS('edit', '${os.id}')"><div class="fast-actions">${btnBack}${btnFwd}</div><div class="d-flex justify-content-between mb-2"><span class="badge bg-dark border border-secondary text-white py-2 px-3 fs-6">${os.placa}</span></div><h6 class="text-white fw-bold mb-1 text-truncate" style="max-width: 85%;">${os.veiculo}</h6><small class="text-white-50"><i class="bi bi-person-fill"></i> ${os.cliente}</small></div>`;
-            });
-            ordem.forEach(id => { document.getElementById('col_'+id).innerHTML = cols[id]; document.getElementById('count_'+id).innerText = counts[id]; });
-        }
-
-        async function mudarStatusRapido(id, novoStatus) {
-            const osRef = db.collection('ordens_servico').doc(id); const doc = await osRef.get();
-            let h = doc.data().historico || []; h.push({ data: new Date().toISOString(), usuario: user_nome, acao: `Moveu o card via Pátio para: ${novoStatus.toUpperCase()}` });
-            await osRef.update({ status: novoStatus, historico: h, ultimaAtualizacao: new Date().toISOString() });
-            showToast("Veículo reposicionado no Pátio.");
-        }
-
-        // --- ARQUIVO MORTO E LIXEIRA DE AUDITORIA ---
-        function renderizarTabelaArquivo() {
-            let entregues = bancoOSCompleto.filter(os => os.status === 'entregue').sort((a,b) => new Date(b.ultimaAtualizacao) - new Date(a.ultimaAtualizacao));
-            const t = document.getElementById('buscaGeral').value.toLowerCase().trim();
-            if (t) entregues = entregues.filter(o => (o.placa&&o.placa.toLowerCase().includes(t)) || (o.cliente&&o.cliente.toLowerCase().includes(t)));
-            document.getElementById('tabelaArquivoCorpo').innerHTML = entregues.map(os => `<tr><td class="text-white-50 small"><i class="bi bi-calendar-check text-success me-2"></i> ${new Date(os.ultimaAtualizacao).toLocaleDateString('pt-BR')}</td><td><span class="badge bg-dark border px-3 py-2 fs-6 shadow-sm">${os.placa}</span></td><td class="text-white fw-bold">${os.veiculo}</td><td class="text-white-50">${os.cliente}</td><td class="admin-only text-success fw-bold">R$ ${(os.total||0).toFixed(2).replace('.',',')}</td><td class="text-center"><button class="btn btn-outline-info shadow-sm fw-bold px-4" onclick="abrirModalOS('edit', '${os.id}')"><i class="bi bi-folder-symlink-fill me-2"></i> Prontuário</button></td></tr>`).join('');
-        }
-
-        function iniciarEscutaLixeira() {
-            db.collection('lixeira_auditoria').where('tenantId', '==', t_id).onSnapshot(snap => {
-                document.getElementById('tabelaLixeiraCorpo').innerHTML = snap.docs.map(d => { const l = d.data(); return `<tr><td class="text-white-50 small">${new Date(l.apagadoEm).toLocaleDateString('pt-BR')}</td><td class="text-white fw-bold">${l.placaOriginal}</td><td><i class="bi bi-person-badge text-danger"></i> ${l.apagadoPor}</td><td class="text-warning">${l.motivo}</td></tr>`; }).join('');
-            });
-        }
-        async function apagarOS() {
-            if(t_role !== 'admin') { showToast("Somente o Gestor pode realizar a exclusão e gerar a auditoria.", "error"); return; }
-            const id = document.getElementById('os_id').value;
-            const m = prompt("ATENÇÃO: A O.S. será excluída e enviada para a Lixeira. Digite o motivo da exclusão (Obrigatório):");
-            if(!m || m.trim() === '') { showToast("Operação cancelada. A justificativa é obrigatória.", "error"); return; }
-            
-            const osCancelada = bancoOSCompleto.find(x => x.id === id);
-            await db.collection('lixeira_auditoria').add({ tenantId: t_id, placaOriginal: osCancelada.placa, apagadoPor: user_nome, apagadoEm: new Date().toISOString(), motivo: m, dadosAntigos: osCancelada });
-            await db.collection('ordens_servico').doc(id).delete();
-            showToast("O.S. Cancelada. O histórico foi guardado na Lixeira.", "success"); modalOSInstance.hide();
-        }
-
-        // --- COMPOSIÇÃO DE O.S ---
-        const modalOSInstance = new bootstrap.Modal(document.getElementById('modalOS'));
-        const modalFatInstance = new bootstrap.Modal(document.getElementById('modalFaturamento'));
-
-        function verificarStatusLink() { const a = document.getElementById('alertaLinkCliente'); if (document.getElementById('os_status').value === 'aprovacao' && document.getElementById('os_id').value) a.classList.remove('d-none'); else a.classList.add('d-none'); }
-
-        function abrirModalOS(mode = 'nova', id = '') {
-            document.getElementById('formOS').reset(); document.getElementById('listaPecasCorpo').innerHTML = ''; fotosOSAtual = []; historicoOSAtual = []; document.getElementById('header_placa').innerText = ''; document.getElementById('listaHistorico').innerHTML = ''; document.getElementById('caixaMensagens').innerHTML = ''; document.getElementById('btnFaturar').classList.add('d-none'); document.getElementById('btnGerarPDF').classList.add('d-none');
-            // Reseta checklists
-            ['chk_combustivel', 'chk_arranhado', 'chk_bateria', 'chk_pneus'].forEach(i => document.getElementById(i).checked = false);
-
-            if (mode === 'edit') {
-                const os = bancoOSCompleto.find(x => x.id === id);
-                if (os) {
-                    document.getElementById('os_id').value = os.id; document.getElementById('os_placa').value = os.placa || ''; document.getElementById('header_placa').innerText = `[${os.placa}]`;
-                    document.getElementById('os_veiculo').value = os.veiculo || ''; document.getElementById('os_cliente').value = os.cliente || ''; document.getElementById('os_celular').value = os.celular || ''; document.getElementById('os_status').value = os.status || 'patio';
-                    document.getElementById('os_relato_cliente').value = os.relatoCliente || ''; document.getElementById('os_diagnostico').value = os.diagnostico || '';
-                    if(os.chk_combustivel) document.getElementById('chk_combustivel').checked = true; if(os.chk_arranhado) document.getElementById('chk_arranhado').checked = true; if(os.chk_bateria) document.getElementById('chk_bateria').checked = true; if(os.chk_pneus) document.getElementById('chk_pneus').checked = true;
-                    
-                    if (os.fotos) { fotosOSAtual = os.fotos; renderizarGaleria(); }
-                    if (os.historico) { historicoOSAtual = os.historico; renderizarHistorico(); }
-                    if (os.pecas) os.pecas.forEach(p => adicionarLinhaPeca(p.desc, p.ncm, p.cfop, p.qtd, p.custo, p.venda, p.idEstoque, p.isMaoObra));
-                    document.getElementById('btnGerarPDF').classList.remove('d-none');
-                    if (os.status === 'pronto') document.getElementById('btnFaturar').classList.remove('d-none');
-                    if (t_role === 'admin') document.getElementById('btnDeletarOS').classList.remove('d-none');
-                    iniciarEscutaChat(os.id);
-                }
-            } else { adicionarMaoDeObra(); }
-            verificarStatusLink(); modalOSInstance.show();
-        }
-
-        function adicionarDoEstoque() {
-            const sel = document.getElementById('selectProdutoEstoque'); if(!sel.value) return;
-            const opt = sel.options[sel.selectedIndex];
-            adicionarLinhaPeca(opt.dataset.desc, opt.dataset.ncm, opt.dataset.cfop, 1, parseFloat(opt.dataset.custo), parseFloat(opt.dataset.venda), sel.value, false); sel.value = '';
-        }
-        function adicionarMaoDeObra() { adicionarLinhaPeca("Mão de Obra Técnica", "-", "-", 1, 0, 0, null, true); }
-        
-        function adicionarLinhaPeca(desc, ncm, cfop, qtd, custo, venda, idEstoque, isMaoObra) {
-            const tr = document.createElement('tr');
-            const mo = isMaoObra ? `data-maoobra="true"` : ''; const est = idEstoque ? `data-idestoque="${idEstoque}" readonly` : '';
-            tr.innerHTML = `<td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary peca-desc" value="${desc}" ${est} ${mo}></td>
-                <td><span class="text-white-50 small d-block">NCM: ${ncm||'-'}</span><span class="text-info small">CFOP: ${cfop||'-'}</span></td>
-                <td><input type="number" class="form-control form-control-sm bg-dark text-white border-secondary peca-qtd" value="${qtd}" min="1" onchange="calcularTotalOS()"></td>
-                <td class="admin-only"><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-danger border-secondary peca-custo" value="${custo}" onchange="calcularTotalOS()"></td>
-                <td class="admin-only"><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-success border-secondary peca-venda" value="${venda}" onchange="calcularTotalOS()"></td>
-                <td class="admin-only"><input type="text" class="form-control form-control-sm bg-black text-white border-0 peca-total fw-bold" readonly value="0.00"></td>
-                <td class="text-center" data-html2canvas-ignore><button type="button" class="btn btn-sm btn-outline-danger border-0 mt-1" onclick="this.closest('tr').remove(); calcularTotalOS()"><i class="bi bi-trash"></i></button></td>`;
-            document.getElementById('listaPecasCorpo').appendChild(tr); calcularTotalOS();
-        }
-
-        function calcularTotalOS() {
-            let t = 0; document.querySelectorAll('#listaPecasCorpo tr').forEach(tr => { const q = parseFloat(tr.querySelector('.peca-qtd').value)||0; const v = parseFloat(tr.querySelector('.peca-venda').value)||0; tr.querySelector('.peca-total').value = (q*v).toFixed(2); t += (q*v); }); document.getElementById('os_total_geral').innerText = `R$ ${t.toFixed(2).replace('.',',')}`; return t;
-        }
-
-        async function salvarOS() {
-            const id = document.getElementById('os_id').value; let pecasArray = []; let tVenda = 0; let tCusto = 0; let tMO = 0;
-            // Se o usuário for inteligente e colocar um CPF mas nao tiver criado, o sistema cria o CRM dele agora
-            const cpfOS = document.getElementById('os_cliente_cpf').value || '';
-            const clienteOS = document.getElementById('os_cliente').value.trim();
-            const telOS = document.getElementById('os_celular').value.trim();
-            
-            if(clienteOS && !bancoCrm.find(c => c.nome.toLowerCase() === clienteOS.toLowerCase())) {
-                await db.collection('clientes_base').add({ tenantId: t_id, nome: clienteOS, telefone: telOS, documento: cpfOS, anotacoes: "Criado automaticamente via O.S." });
-            }
-
-            document.querySelectorAll('#listaPecasCorpo tr').forEach(tr => {
-                const descInput = tr.querySelector('.peca-desc'); const desc = descInput.value.trim(); const idEstoque = descInput.dataset.idestoque || null; const isMaoObra = descInput.dataset.maoobra === "true"; const q = parseFloat(tr.querySelector('.peca-qtd').value)||1; const c = parseFloat(tr.querySelector('.peca-custo').value)||0; const v = parseFloat(tr.querySelector('.peca-venda').value)||0;
-                if (desc !== '') { pecasArray.push({ desc, qtd:q, custo:c, venda:v, idEstoque, isMaoObra }); tVenda += (q*v); tCusto += (q*c); if(isMaoObra) tMO += (q*v); }
-            });
-            
-            historicoOSAtual.push({ data: new Date().toISOString(), usuario: user_nome, acao: id ? "O.S Atualizada." : "Ficha Técnica Aberta." });
-            
-            const payload = { tenantId: t_id, placa: document.getElementById('os_placa').value.toUpperCase(), veiculo: document.getElementById('os_veiculo').value, cliente: clienteOS, celular: telOS, status: document.getElementById('os_status').value, relatoCliente: document.getElementById('os_relato_cliente').value, diagnostico: document.getElementById('os_diagnostico').value, chk_combustivel: document.getElementById('chk_combustivel').checked, chk_arranhado: document.getElementById('chk_arranhado').checked, chk_bateria: document.getElementById('chk_bateria').checked, chk_pneus: document.getElementById('chk_pneus').checked, pecas: pecasArray, total: tVenda, custoTotal: tCusto, maoObraTotal: tMO, fotos: fotosOSAtual, historico: historicoOSAtual, ultimaAtualizacao: new Date().toISOString() };
-            if (!id) payload.mecanico = user_nome; 
-            
-            if (id) await db.collection('ordens_servico').doc(id).update(payload); else await db.collection('ordens_servico').add(payload);
-            showToast("Dados salvos e auditados.", "success"); modalOSInstance.hide();
-        }
-
-        // ======================= MOTOR FATURAMENTO (A MÁQUINA DE DINHEIRO) =======================
-        let osParaFaturar = null;
-        function abrirFaturamentoDireto(id) { osParaFaturar = bancoOSCompleto.find(o => o.id === id); document.getElementById('fat_valor_total').innerText = `R$ ${(osParaFaturar.total||0).toFixed(2).replace('.',',')}`; modalFatInstance.show(); }
-        function abrirFaturamentoOS() { salvarOS(); setTimeout(() => { abrirFaturamentoDireto(document.getElementById('os_id').value); }, 1000); }
-
-        async function processarFaturamentoCompleto() {
-            if(!osParaFaturar) return;
-            const metodo = document.getElementById('fat_metodo').value; const parcelas = parseInt(document.getElementById('fat_parcelas').value); const valorParcela = osParaFaturar.total / parcelas; const batch = db.batch();
-            
-            for(let i=0; i<parcelas; i++) { let v = new Date(); v.setMonth(v.getMonth() + i); batch.set(db.collection('financeiro').doc(), { tenantId: t_id, tipo: 'receita', desc: `Faturamento O.S: [${osParaFaturar.placa}]`, valor: valorParcela, parcelaAtual: i+1, totalParcelas: parcelas, metodo: metodo, vencimento: v.toISOString(), status: (i===0 && (metodo==='Pix'||metodo==='Dinheiro')) ? 'pago' : 'pendente' }); }
-
-            if(osParaFaturar.pecas && !osParaFaturar.baixaEstoqueFeita) {
-                for (const p of osParaFaturar.pecas) { if (p.idEstoque) { const estRef = db.collection('estoque').doc(p.idEstoque); const estDoc = await estRef.get(); if(estDoc.exists) batch.update(estRef, { qtd: Math.max(0, estDoc.data().qtd - p.qtd) }); } }
-            }
-
-            let usrComissao = user_comissao; if(t_role === 'admin') usrComissao = 0; const comissaoReais = ((osParaFaturar.maoObraTotal||0) * (usrComissao / 100));
-            let h = osParaFaturar.historico || []; h.push({ data: new Date().toISOString(), usuario: "Admin Financeiro", acao: `Faturado: Pago em ${parcelas}x (${metodo}). Comissão de R$ ${comissaoReais.toFixed(2)} lançada na DRE.` });
-            
-            batch.update(db.collection('ordens_servico').doc(osParaFaturar.id), { status: 'entregue', baixaEstoqueFeita: true, comissaoProcessada: comissaoReais, mecanicoReal: osParaFaturar.mecanico || user_nome, historico: h, ultimaAtualizacao: new Date().toISOString() });
-            await batch.commit(); showToast("O.S. Faturada! Estoque e comissões processados na nuvem.", "success"); modalFatInstance.hide(); modalOSInstance.hide();
-        }
-
-        // ======================= PDF PADRÃO MENECHELLI =======================
-        async function exportarPDFMenechelli() {
-            const btn = document.getElementById('btnGerarPDF'); btn.innerHTML = 'Processando...'; btn.disabled = true; const placa = document.getElementById('os_placa').value;
-            try {
-                const { jsPDF } = window.jspdf; const doc = new jsPDF('p', 'mm', 'a4'); const pageWidth = doc.internal.pageSize.getWidth(); let y = 15;
-                doc.setFillColor(30, 41, 59); doc.rect(0, 0, pageWidth, 40, 'F'); doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(26); doc.text(t_nome.toUpperCase(), pageWidth/2, 22, { align: "center" }); doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.text(`LAUDO TÉCNICO VEICULAR E ORÇAMENTO`, pageWidth/2, 30, { align: "center" }); y = 50; doc.setTextColor(0, 0, 0);
-
-                doc.setDrawColor(200, 200, 200); doc.rect(15, y, pageWidth-30, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-                doc.text(`Cliente:`, 20, y+8); doc.setFont("helvetica", "normal"); doc.text(document.getElementById('os_cliente').value, 38, y+8); doc.setFont("helvetica", "bold"); doc.text(`Contato:`, 130, y+8); doc.setFont("helvetica", "normal"); doc.text(document.getElementById('os_celular').value, 150, y+8); doc.setFont("helvetica", "bold"); doc.text(`Placa:`, 20, y+18); doc.setFont("helvetica", "normal"); doc.text(placa, 35, y+18); doc.setFont("helvetica", "bold"); doc.text(`Veículo:`, 130, y+18); doc.setFont("helvetica", "normal"); doc.text(document.getElementById('os_veiculo').value, 148, y+18); y += 35;
-                
-                doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(`RECLAMAÇÃO DO CLIENTE / QUEIXA`, 15, y); doc.line(15, y+2, pageWidth-15, y+2); y += 10; doc.setFont("helvetica", "normal"); doc.setFontSize(10); const txtQ = doc.splitTextToSize(document.getElementById('os_relato_cliente').value || 'Não reportado.', pageWidth - 30); doc.text(txtQ, 15, y); y += (txtQ.length * 6) + 10;
-                doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(`DIAGNÓSTICO TÉCNICO (MECÂNICO)`, 15, y); doc.line(15, y+2, pageWidth-15, y+2); y += 10; doc.setFont("helvetica", "normal"); doc.setFontSize(10); const txtL = doc.splitTextToSize(document.getElementById('os_diagnostico').value || 'Inspeção padrão.', pageWidth - 30); doc.text(txtL, 15, y); y += (txtL.length * 6) + 10;
-
-                let tableBody = []; document.querySelectorAll('#listaPecasCorpo tr').forEach(tr => { tableBody.push([tr.querySelector('.peca-desc').value, tr.querySelector('.peca-qtd').value, `R$ ${tr.querySelector('.peca-venda').value}`, `R$ ${tr.querySelector('.peca-total').value}`]); });
-                doc.autoTable({ startY: y, head: [['Serviço / Peça', 'Qtd', 'Vlr. Unitário', 'Subtotal']], body: tableBody, theme: 'grid', headStyles: { fillColor: [30, 41, 59] }, margin: { left: 15, right: 15 }}); y = doc.lastAutoTable.finalY + 15;
-
-                const areaFotos = document.getElementById('areaFotosExport');
-                if (fotosOSAtual.length > 0 && areaFotos) {
-                    if (y > 220) { doc.addPage(); y = 20; } doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(`EVIDÊNCIAS FOTOGRÁFICAS`, 15, y); doc.line(15, y+2, pageWidth-15, y+2); y += 10;
-                    const canvas = await html2canvas(areaFotos, { useCORS: true, backgroundColor: "#ffffff", scale: 2 }); const pdfWidth = pageWidth - 30; const pdfHeight = (doc.getImageProperties(canvas.toDataURL('image/jpeg', 1.0)).height * pdfWidth) / doc.getImageProperties(canvas.toDataURL('image/jpeg', 1.0)).width;
-                    if(y + pdfHeight > 270) { doc.addPage(); y = 20; } doc.addImage(canvas.toDataURL('image/jpeg', 1.0), 'JPEG', 15, y, pdfWidth, pdfHeight); y += pdfHeight + 15;
-                }
-
-                if (y > 240) { doc.addPage(); y = 20; }
-                if(t_role === 'admin') { doc.setFillColor(240, 240, 240); doc.rect(pageWidth - 85, y, 70, 15, 'F'); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(`ORÇAMENTO FINAL:`, pageWidth - 80, y+10); doc.setTextColor(0, 100, 0); doc.text(document.getElementById('os_total_geral').innerText, pageWidth - 40, y+10); doc.setTextColor(0, 0, 0); y += 30; } else { y += 20; }
-                doc.line(15, y, 85, y); doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text(`Profissional Responsável`, 50, y+5, { align: "center" }); doc.line(125, y, 195, y); doc.text(`Assinatura do Cliente (Aceite)`, 160, y+5, { align: "center" });
-                doc.setFont("helvetica", "italic"); doc.setFontSize(8); doc.setTextColor(150, 150, 150); doc.text("Powered by thIAguinho Soluções Digitais - Software Enterprise", pageWidth/2, 290, { align: "center" });
-                doc.save(`Laudo_Tecnico_${placa}.pdf`); showToast("PDF Padrão Menechelli gerado.");
-            } catch (err) { showToast("Falha na geração do PDF.", "error"); }
-            btn.innerHTML = '<i class="bi bi-file-earmark-pdf-fill me-1"></i> Exportar Laudo Oficial'; btn.disabled = false;
-        }
-
-        // ======================= RECURSOS EXTRAS (t.h.I.A.g.u.i.n.h.o, CHAT, FOTOS, FINANCEIRO) =======================
-        // O código de chat, foto e IA e Financeiro permanece igual ao anterior (pois estava correto) e está implementado abaixo
-        
-        function renderizarHistorico() { document.getElementById('listaHistorico').innerHTML = historicoOSAtual.length === 0 ? '' : [...historicoOSAtual].sort((a,b) => new Date(b.data) - new Date(a.data)).map(h => `<li class="timeline-item"><strong class="text-white">${h.usuario}</strong> - <span class="text-info">${new Date(h.data).toLocaleString('pt-BR')}</span><p class="mb-0 mt-1 bg-dark d-inline-block px-3 py-1 rounded border border-secondary">${h.acao}</p></li>`).join(''); }
-        
-        let chatListener = null; function iniciarEscutaChat(osId) { if(chatListener) chatListener(); chatListener = db.collection('ordens_servico').doc(osId).collection('mensagens').orderBy('data', 'asc').onSnapshot(snap => { const cx = document.getElementById('caixaMensagens'); if(snap.empty) { cx.innerHTML = '<div class="text-center text-white-50 mt-5">Nenhum diálogo com o cliente ainda.</div>'; return; } cx.innerHTML = snap.docs.map(doc => { const msg = doc.data(); return msg.autor === 'cliente' ? `<div class="msg-cliente shadow-sm"><strong>Cliente:</strong><br>${msg.texto}</div>` : `<div class="msg-oficina shadow-sm"><strong>${msg.nomeAutor}:</strong><br>${msg.texto}</div>`; }).join(''); cx.scrollTop = cx.scrollHeight; }); }
-        async function enviarMensagemChat() { const osId = document.getElementById('os_id').value; const input = document.getElementById('inputMsg'); if(!osId || !input.value.trim()) return; await db.collection('ordens_servico').doc(osId).collection('mensagens').add({ autor: 'oficina', nomeAutor: user_nome, texto: input.value.trim(), data: new Date().toISOString() }); input.value = ''; }
-
-        function configurarCloudinary() { if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) return; var w = cloudinary.createUploadWidget({ cloudName: CLOUDINARY_CLOUD_NAME, uploadPreset: CLOUDINARY_UPLOAD_PRESET, sources: ['local', 'camera'], language: 'pt' }, (err, res) => { if (!err && res && res.event === "success") { fotosOSAtual.push(res.info.secure_url); historicoOSAtual.push({ data: new Date().toISOString(), usuario: user_nome, acao: "Anexou fotografia técnica." }); renderizarGaleria(); } }); const btn = document.getElementById("btnUploadCloudinary"); if(btn) btn.addEventListener("click", () => w.open(), false); }
-        function renderizarGaleria() { document.getElementById('galeriaFotosOS').innerHTML = fotosOSAtual.map((url, i) => `<div class="position-relative shadow-sm" style="width: 140px; height: 140px;"><img src="${url}" crossorigin="anonymous" class="img-thumbnail bg-dark border-secondary w-100 h-100 object-fit-cover rounded-3"><button type="button" data-html2canvas-ignore class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 p-0 px-2 rounded-circle" onclick="removerFoto(${i})"><i class="bi bi-x"></i></button></div>`).join(''); }
-        function removerFoto(index) { fotosOSAtual.splice(index, 1); historicoOSAtual.push({ data: new Date().toISOString(), usuario: user_nome, acao: "Apagou uma foto." }); renderizarGaleria(); }
-
-        function iniciarEscutaFinanceiro() { db.collection('financeiro').where('tenantId', '==', t_id).onSnapshot(snap => { bancoFin = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); renderizarFinanceiroGeral(); }); }
-        function renderizarFinanceiroGeral() {
-            if(!document.getElementById('tela_financeiro')) return;
-            let totRec = 0, totPag = 0; const tPagar = document.getElementById('tabelaPagarCorpo'); const tReceber = document.getElementById('tabelaReceberCorpo'); let hPagar = '', hReceber = '';
-            bancoFin.sort((a,b) => new Date(a.vencimento) - new Date(b.vencimento)).forEach(f => {
-                const isR = f.tipo === 'receita'; if(isR) totRec += f.valor; else totPag += f.valor; const cor = isR ? 'text-success' : 'text-danger';
-                const st = f.status === 'pago' ? '<span class="badge bg-success">Pago</span>' : '<span class="badge bg-warning text-dark">Pendente</span>';
-                const btn = f.status === 'pendente' ? `<button class="btn btn-sm btn-outline-${isR?'success':'danger'} fw-bold" onclick="baixarFatura('${f.id}')">Baixar</button>` : '';
-                const html = `<tr><td>${new Date(f.vencimento).toLocaleDateString('pt-BR')}</td><td>${f.desc}</td><td>${f.parcelaAtual}/${f.totalParcelas}</td><td>${f.metodo}</td><td class="${cor} fw-bold">R$ ${f.valor.toFixed(2)}</td><td>${st}</td><td>${btn} <button class="btn btn-sm btn-link text-danger" onclick="db.collection('financeiro').doc('${f.id}').delete()"><i class="bi bi-trash"></i></button></td></tr>`;
-                if(isR) hReceber += html; else hPagar += html;
-            });
-            tPagar.innerHTML = hPagar || '<tr><td colspan="7">Nada a pagar.</td></tr>'; tReceber.innerHTML = hReceber || '<tr><td colspan="7">Sem receitas pendentes.</td></tr>';
-            let totCom = 0; bancoOSCompleto.filter(o=>o.status==='entregue').forEach(o => totCom += (o.comissaoProcessada||0));
-            document.getElementById('dreReceitas').innerText = `R$ ${totRec.toFixed(2)}`; document.getElementById('dreDespesas').innerText = `R$ ${totPag.toFixed(2)}`; document.getElementById('dreComissoes').innerText = `R$ ${totCom.toFixed(2)}`; document.getElementById('dreLucro').innerText = `R$ ${(totRec - totPag - totCom).toFixed(2)}`;
-        }
-        async function baixarFatura(id) { await db.collection('financeiro').doc(id).update({ status: 'pago' }); showToast("Baixa efetuada no Caixa."); }
-        async function salvarDespesaAvulsa(e) { e.preventDefault(); const v = parseFloat(document.getElementById('d_valor').value); const p = parseInt(document.getElementById('d_parcelas').value); const batch = db.batch(); for(let i=0; i<p; i++) { let dt = new Date(document.getElementById('d_data').value); dt.setMonth(dt.getMonth() + i); batch.set(db.collection('financeiro').doc(), { tenantId: t_id, tipo: 'despesa', desc: document.getElementById('d_desc').value, valor: v/p, parcelaAtual: i+1, totalParcelas: p, metodo: 'Boleto/Pix', vencimento: dt.toISOString(), status: 'pendente' }); } await batch.commit(); bootstrap.Modal.getInstance(document.getElementById('modalDespesa')).hide(); e.target.reset(); showToast("Contas a Pagar Gerado."); }
-        async function salvarReceitaAvulsa(e) { e.preventDefault(); await db.collection('financeiro').add({ tenantId: t_id, tipo: 'receita', desc: document.getElementById('r_desc').value, valor: parseFloat(document.getElementById('r_valor').value), parcelaAtual: 1, totalParcelas: 1, metodo: 'Avulso', vencimento: new Date(document.getElementById('r_data').value).toISOString(), status: 'pago' }); bootstrap.Modal.getInstance(document.getElementById('modalReceita')).hide(); e.target.reset(); showToast("Receita adicionada ao Caixa."); }
-
-        // ======================= IA T.H.I.A.G.U.I.N.H.O =======================
-        function iniciarEscutaIA() { db.collection('conhecimento_ia').where('tenantId', '==', t_id).onSnapshot(snap => { bancoIA = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); const box = document.getElementById('listaConhecimentosIA'); if(box) box.innerHTML = bancoIA.map(i => `<div class="d-flex justify-content-between bg-dark p-2 rounded mb-2 border border-secondary"><span class="small text-white-50"><i class="bi bi-file-text text-success me-2"></i> ${i.origem}</span><button class="btn btn-sm btn-link text-danger p-0" onclick="db.collection('conhecimento_ia').doc('${i.id}').delete()"><i class="bi bi-trash"></i></button></div>`).join(''); }); }
-        async function processarArquivoParaIA(e) { const file = e.target.files[0]; if(!file) return; document.getElementById('iaFileStatus').innerText = "Lendo arquivo..."; try { let txt = ''; if(file.type === 'application/pdf') { const buf = await file.arrayBuffer(); const pdf = await pdfjsLib.getDocument({ data: buf }).promise; for(let i=1; i<=pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); txt += content.items.map(item => item.str).join(' ') + '\\n'; } } else { txt = await file.text(); } await db.collection('conhecimento_ia').add({ tenantId: t_id, origem: file.name, texto: txt.substring(0, 10000), adicionadoEm: new Date().toISOString() }); document.getElementById('iaFileStatus').innerText = "Manual arquivado."; } catch(err) { document.getElementById('iaFileStatus').innerText = "Erro ao ler PDF."; } }
-        async function salvarConhecimentoIA() { const txt = document.getElementById('iaConhecimentoTexto').value.trim(); if(!txt) return; await db.collection('conhecimento_ia').add({ tenantId: t_id, origem: 'Regra Manual', texto: txt, adicionadoEm: new Date().toISOString() }); document.getElementById('iaConhecimentoTexto').value = ''; showToast("Regra memorizada."); }
-        async function perguntarJarvis() { const input = document.getElementById('jarvisInput').value; if(!input) return; if(!API_KEY_GEMINI) { showToast('API Key Gemini ausente.', 'error'); return; } const box = document.getElementById('jarvisResposta'); box.classList.remove('d-none'); box.innerHTML = '<span class="spinner-border spinner-border-sm text-info"></span> t.h.I.A.g.u.i.n.h.o analisando...'; let contexto = bancoIA.map(d => d.texto).join('\\n\\n'); let kanbanData = bancoOSCompleto.filter(o=>o.status !== 'entregue').map(o => `[Placa: ${o.placa} | Cliente: ${o.cliente} | Veículo: ${o.veiculo} | Status Atual: ${o.status} | Queixa: ${o.relatoCliente || ''} ${o.diagnostico || ''}]`).join('\\n'); const prompt = `Você é o t.h.I.A.g.u.i.n.h.o, o consultor I.A. técnico da oficina '${t_nome}'. Responda de forma direta.\nMANUAIS DA OFICINA:\n${contexto}\nVEÍCULOS NO PÁTIO AGORA:\n${kanbanData}\nPERGUNTA: ${input}`; try { const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY_GEMINI}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); const data = await res.json(); box.innerHTML = `<strong><i class="bi bi-robot"></i> t.h.I.A.g.u.i.n.h.o:</strong><br>${data.candidates[0].content.parts[0].text.replace(/\\n/g, '<br>')}`; document.getElementById('jarvisInput').value = ''; } catch(e) { box.innerHTML = "Erro na IA."; } }
-        function jarvisAnalisarRevisoes() { const box = document.getElementById('jarvisCRMInsights'); if(!box) return; box.innerHTML = '<span class="spinner-border spinner-border-sm text-info"></span> Analisando clientes antigos...'; setTimeout(() => { const hoje = new Date(); let sugestoes = []; bancoOSCompleto.forEach(os => { if(os.status === 'entregue' && os.ultimaAtualizacao) { const dataOS = new Date(os.ultimaAtualizacao); const mesesPassados = (hoje.getFullYear() - dataOS.getFullYear()) * 12 + (hoje.getMonth() - dataOS.getMonth()); if (mesesPassados >= 6) { sugestoes.push(`<div class="mb-2 p-2 border border-secondary rounded"><strong>${os.cliente} (${os.veiculo})</strong><br>Última visita há ${mesesPassados} meses. <a href="https://wa.me/${(os.celular||'').replace(/\\D/g, '')}?text=Olá ${os.cliente}, tudo bem? Notamos que seu veículo ${os.veiculo} fez um serviço conosco há ${mesesPassados} meses. Vamos agendar uma revisão preventiva?" target="_blank" class="text-info fw-bold">Chamar no WhatsApp</a></div>`); } } }); box.innerHTML = sugestoes.length > 0 ? sugestoes.join('') : "Nenhum cliente precisando de revisão no radar."; }, 1000); }
-    </script>
+    <script src="js/app_oficina.js"></script>
 </body>
 </html>
