@@ -1,139 +1,135 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-bs-theme="dark">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>thIAguinho Hub - Acesso ao Ecossistema Digital</title>
-    
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
-        body { 
-            background-color: #050505; 
-            font-family: 'Segoe UI', system-ui, sans-serif; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            min-height: 100vh; 
-            margin: 0; 
-            color: #fff; 
-            overflow: hidden; 
+        body {
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        .bg-animated { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: radial-gradient(circle at top left, #1e293b 0%, #050505 100%); 
-            z-index: 1; 
+        .login-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            max-width: 450px;
+            width: 90%;
         }
-        .login-card { 
-            background: rgba(15, 23, 42, 0.85); 
-            backdrop-filter: blur(20px); 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            border-radius: 24px; 
-            padding: 60px 50px; 
-            width: 100%; 
-            max-width: 480px; 
-            box-shadow: 0 30px 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1); 
-            position: relative; 
-            z-index: 2; 
+        .logo-area {
+            text-align: center;
+            margin-bottom: 30px;
         }
-        .form-control { 
-            background-color: rgba(0,0,0,0.5) !important; 
-            border: 1px solid rgba(255, 255, 255, 0.1) !important; 
-            color: #fff !important; 
-            padding: 16px; 
-            border-radius: 12px; 
-            font-size: 1.1rem; 
-            transition: all 0.3s ease; 
+        .logo-area h1 {
+            color: #00d4ff;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
         }
-        .form-control:focus { 
-            border-color: #0dcaf0 !important; 
-            box-shadow: 0 0 0 4px rgba(13, 202, 240, 0.1); 
-            background-color: rgba(0,0,0,0.8) !important; 
+        .logo-area p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.1rem;
         }
-        .input-group-text { 
-            background-color: rgba(0,0,0,0.5); 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            border-right: none; 
-            color: #0dcaf0; 
-            border-radius: 12px 0 0 12px; 
+        .form-control {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
         }
-        .form-control { 
-            border-left: none; 
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #00d4ff;
+            color: white;
+            box-shadow: 0 0 0 0.2rem rgba(0, 212, 255, 0.25);
         }
-        .btn-primary { 
-            background: linear-gradient(135deg, #0dcaf0 0%, #0891b2 100%); 
-            border: none; 
-            font-weight: 800; 
-            padding: 16px; 
-            border-radius: 12px; 
-            font-size: 1.2rem; 
-            color: #000; 
-            letter-spacing: 1px; 
-            transition: all 0.3s ease; 
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
-        .btn-primary:hover { 
-            transform: translateY(-3px); 
-            box-shadow: 0 15px 30px rgba(13, 202, 240, 0.3); 
+        .input-group-text {
+            background: rgba(0, 212, 255, 0.2);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
         }
-        .toast-container { 
-            position: fixed; 
-            top: 30px; 
-            right: 30px; 
-            z-index: 9999; 
+        .btn-login {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            border: none;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
         }
-        .brand-icon { 
-            font-size: 4rem; 
-            background: -webkit-linear-gradient(#0dcaf0, #3b82f6); 
-            -webkit-background-clip: text; 
-            -webkit-text-fill-color: transparent; 
-            filter: drop-shadow(0 0 20px rgba(13, 202, 240, 0.5)); 
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 212, 255, 0.3);
+            color: white;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+        }
+        .alert {
+            border-radius: 10px;
         }
     </style>
 </head>
 <body>
+    <div class="login-container">
+        <div class="logo-area">
+            <h1><i class="bi bi-hexagon-fill me-2"></i>THIAGUINHO HUB</h1>
+            <p>Ecossistema Global de Soluções</p>
+        </div>
 
-    <div class="bg-animated"></div>
-    <div class="toast-container" id="toastContainer"></div>
+        <div id="alertContainer"></div>
 
-    <div class="login-card text-center">
-        <i class="bi bi-fingerprint brand-icon mb-2"></i>
-        <h2 class="fw-bold mt-2 mb-1" style="letter-spacing: 2px;">THIAGUINHO HUB</h2>
-        <p class="text-white-50 mb-5 small text-uppercase" style="letter-spacing: 3px;">Ecossistema Global de Soluções</p>
-        
-        <form onsubmit="realizarLoginUniversal(event)">
-            <div class="mb-4 text-start">
-                <label class="form-label text-white-50 fw-bold small text-uppercase ms-1">Usuário / Identificação</label>
-                <div class="input-group shadow-sm">
-                    <span class="input-group-text"><i class="bi bi-person-bounding-box"></i></span>
-                    <input type="text" class="form-control" id="loginUser" required placeholder="Digite a sua credencial">
+        <form id="loginForm">
+            <div class="mb-3">
+                <label class="form-label text-white-50"><i class="bi bi-person-circle me-2"></i>Usuário / Identificação</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" class="form-control" id="inputUser" placeholder="Digite seu usuário" required autocomplete="username">
                 </div>
             </div>
-            <div class="mb-5 text-start">
-                <label class="form-label text-white-50 fw-bold small text-uppercase ms-1">Chave de Segurança</label>
-                <div class="input-group shadow-sm">
-                    <span class="input-group-text"><i class="bi bi-shield-lock-fill"></i></span>
-                    <input type="password" class="form-control" id="loginPass" required placeholder="••••••••">
+
+            <div class="mb-3">
+                <label class="form-label text-white-50"><i class="bi bi-shield-lock me-2"></i>Chave de Segurança</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                    <input type="password" class="form-control" id="inputPass" placeholder="Digite sua senha" required autocomplete="current-password">
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary w-100 shadow" id="btnAcesso">INICIAR SESSÃO SEGURA</button>
+
+            <button type="submit" class="btn btn-login" id="btnLogin">
+                <i class="bi bi-box-arrow-in-right me-2"></i>INICIAR SESSÃO SEGURA
+            </button>
         </form>
-        <div class="mt-5 pt-4 border-top border-secondary text-center">
-            <small class="text-white-50 fw-bold d-block">Powered by <span class="text-info">thIAguinho Soluções Digitais</span> &copy; 2026</small>
+
+        <div class="footer">
+            <p class="mb-0">Powered by thIAguinho Soluções Digitais© 2026</p>
         </div>
     </div>
 
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
     <script>
-        // =====================================================================
-        // 1. CONFIGURAÇÃO FIREBASE (ROOT)
-        // =====================================================================
+        // Configuração Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBqIuCsHHuy_f-mBWV4JBkbyOorXpqQvqg",
             authDomain: "hub-thiaguinho.firebaseapp.com",
@@ -142,160 +138,98 @@
             messagingSenderId: "453508098543",
             appId: "1:453508098543:web:305f4d48edd9be40bd6e1a"
         };
-        
-        if (!firebase.apps.length) { 
-            firebase.initializeApp(firebaseConfig); 
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.firestore();
 
-        // Limpa resíduos antigos de cache que causam bugs ao recarregar a tela
-        window.onload = function() {
-            sessionStorage.clear();
-        };
-
-        function showToast(msg, isError = true) {
-            const bg = isError ? 'bg-danger' : 'bg-success';
-            const icon = isError ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill';
-            const id = 'toast_' + Date.now();
-            const t = document.createElement('div');
-            t.innerHTML = `<div id="${id}" class="toast align-items-center text-white ${bg} border-0 show p-3 mt-2 shadow-lg rounded-4"><div class="d-flex"><div class="toast-body fw-bold fs-6"><i class="bi ${icon} me-2"></i> ${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
-            document.getElementById('toastContainer').appendChild(t.firstChild);
-            setTimeout(() => { const el = document.getElementById(id); if(el) el.remove(); }, 4000);
-        }
-
-        // Função de Roteamento Baseado no Nicho
-        function rotearParaNicho(nicho) {
-            let paginaDestino = 'painel.html'; // Fallback Genérico
-            const n = (nicho || '').toLowerCase();
-
-            if (n.includes('oficina') || n.includes('retifica') || n.includes('car') || n.includes('moto')) { 
-                paginaDestino = 'painel_oficina.html'; 
-            } 
-            else if (n.includes('odonto') || n.includes('medicina') || n.includes('saude')) { 
-                paginaDestino = 'painel_saude.html'; 
-            } 
-            // Adicione outros nichos futuros aqui
-            
-            window.location.href = paginaDestino;
-        }
-
-        async function realizarLoginUniversal(e) {
+        // Função de Login
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const usr = document.getElementById('loginUser').value.trim();
-            const pwd = document.getElementById('loginPass').value.trim();
-            const btn = document.getElementById('btnAcesso');
             
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Acessando Nuvem...'; 
-            btn.disabled = true;
+            const user = document.getElementById('inputUser').value.trim();
+            const pass = document.getElementById('inputPass').value.trim();
+            const btnLogin = document.getElementById('btnLogin');
+            
+            if (!user || !pass) {
+                showAlert('Preencha usuário e senha!', 'danger');
+                return;
+            }
+
+            btnLogin.disabled = true;
+            btnLogin.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Autenticando...';
 
             try {
-                // =========================================================
-                // CAMADA 1: LOGIN SUPER ADMIN (HARDCODED/COLEÇÃO)
-                // =========================================================
-                if (usr === 'thiaguinho' && pwd === 'master2026') {
-                    sessionStorage.clear();
-                    sessionStorage.setItem('thiaguinho_master', 'true');
+                // 1. Verifica se é o Super Admin (Hardcoded - mude a senha em produção!)
+                if (user === 'admin' && pass === 'admin123') {
                     sessionStorage.setItem('t_role', 'superadmin');
+                    sessionStorage.setItem('f_nome', 'Super Admin');
+                    sessionStorage.setItem('t_nome', 'thIAguinho Digital');
                     window.location.href = 'superadmin.html';
-                    return; // Retorno crucial para não rodar o resto
+                    return;
                 }
 
-                const snapS = await db.collection('superadmin').where('usuario', '==', usr).get();
-                if (!snapS.empty) {
-                    if (snapS.docs[0].data().senha === pwd) {
-                        sessionStorage.clear();
-                        sessionStorage.setItem('thiaguinho_master', 'true');
-                        sessionStorage.setItem('t_role', 'superadmin');
-                        window.location.href = 'superadmin.html';
-                        return;
-                    }
-                }
+                // 2. Verifica se é um Cliente (Tenant) na coleção 'oficinas'
+                const query = await db.collection('oficinas')
+                    .where('usuarioAdmin', '==', user)
+                    .get();
 
-                // =========================================================
-                // CAMADA 2: TENTA ENTRAR COMO ADMIN DO TENANT (DONO DA OFICINA)
-                // Usando a coleção correta: "oficinas"
-                // =========================================================
-                const tenantSnap = await db.collection('oficinas').where('usuario', '==', usr).get();
-                if (!tenantSnap.empty) {
-                    const doc = tenantSnap.docs[0];
-                    const dados = doc.data();
+                if (!query.empty) {
+                    const doc = query.docs[0];
+                    const data = doc.data();
                     
-                    if (dados.senha !== pwd) { 
-                        showToast('Senha do administrador incorreta.'); 
-                    }
-                    else if (dados.status === 'Bloqueado') { 
-                        showToast('Sua assinatura encontra-se bloqueada. Contate o Suporte.'); 
-                    }
-                    else {
-                        sessionStorage.clear();
-                        sessionStorage.setItem('t_id', doc.id); 
-                        sessionStorage.setItem('t_nome', dados.nomeFantasia || 'Minha Oficina');
-                        sessionStorage.setItem('t_nicho', dados.nicho || 'oficina'); 
+                    // Verifica senha e status
+                    if (data.senhaAdmin === pass) {
+                        if (data.status === 'Bloqueado' || data.status === 'suspenso') {
+                            showAlert('Sistema bloqueado. Contate o suporte.', 'danger');
+                            btnLogin.disabled = false;
+                            btnLogin.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>INICIAR SESSÃO SEGURA';
+                            return;
+                        }
+
+                        // Login Cliente - Sucesso
+                        sessionStorage.setItem('t_id', doc.id);
+                        sessionStorage.setItem('t_nome', data.nome);
                         sessionStorage.setItem('t_role', 'admin');
-                        sessionStorage.setItem('f_nome', 'Gestor Master'); 
-                        sessionStorage.setItem('f_comissao', '0'); 
-                        sessionStorage.setItem('t_mods', JSON.stringify(dados.modulos || {}));
+                        sessionStorage.setItem('f_nome', data.usuarioAdmin);
+                        sessionStorage.setItem('t_cloudName', data.configuracoes?.cloudinaryName || 'dmuvm1o6m');
+                        sessionStorage.setItem('t_cloudPreset', data.configuracoes?.cloudinaryPreset || 'evolution');
                         
-                        // Resgate de Chaves de API de Integração
-                        sessionStorage.setItem('t_cloudName', (dados.apiKeys && dados.apiKeys.cloudinaryName) ? dados.apiKeys.cloudinaryName : 'dmuvm1o6m');
-                        sessionStorage.setItem('t_cloudPreset', (dados.apiKeys && dados.apiKeys.cloudinaryPreset) ? dados.apiKeys.cloudinaryPreset : 'evolution');
-                        sessionStorage.setItem('t_gemini', (dados.apiKeys && dados.apiKeys.gemini) ? dados.apiKeys.gemini : '');
-                        
-                        rotearParaNicho(dados.nicho);
-                        return;
+                        window.location.href = 'painel_oficina.html';
+                    } else {
+                        showAlert('Senha incorreta!', 'danger');
+                        btnLogin.disabled = false;
+                        btnLogin.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>INICIAR SESSÃO SEGURA';
                     }
-                } 
-                else {
-                    // =========================================================
-                    // CAMADA 3: TENTA ENTRAR COMO FUNCIONÁRIO (GERENTE OU MECÂNICO)
-                    // Usando a coleção: "funcionarios"
-                    // =========================================================
-                    const funcSnap = await db.collection('funcionarios').where('usuario', '==', usr).get();
-                    if (!funcSnap.empty) {
-                        const docF = funcSnap.docs[0];
-                        const dadosF = docF.data();
-                        
-                        if (dadosF.senha !== pwd) { 
-                            showToast('Senha de funcionário incorreta.'); 
-                        }
-                        else {
-                            // Validar se a Oficina mãe está ativa
-                            const empresaMae = await db.collection('oficinas').doc(dadosF.tenantId).get();
-                            if(!empresaMae.exists || empresaMae.data().status === 'Bloqueado') {
-                                showToast('A matriz da sua empresa está inativa. Acesso negado.');
-                            } else {
-                                sessionStorage.clear();
-                                sessionStorage.setItem('t_id', dadosF.tenantId); 
-                                sessionStorage.setItem('t_nome', empresaMae.data().nomeFantasia || 'Minha Oficina');
-                                sessionStorage.setItem('t_nicho', empresaMae.data().nicho || 'oficina'); 
-                                sessionStorage.setItem('f_id', docF.id); 
-                                sessionStorage.setItem('f_nome', dadosF.nome); 
-                                sessionStorage.setItem('f_comissao', dadosF.comissao || '0'); 
-                                sessionStorage.setItem('t_role', dadosF.role || 'equipe'); 
-                                sessionStorage.setItem('t_mods', JSON.stringify(empresaMae.data().modulos || {}));
-                                
-                                // Herda Chaves da Empresa
-                                sessionStorage.setItem('t_cloudName', (empresaMae.data().apiKeys && empresaMae.data().apiKeys.cloudinaryName) ? empresaMae.data().apiKeys.cloudinaryName : 'dmuvm1o6m');
-                                sessionStorage.setItem('t_cloudPreset', (empresaMae.data().apiKeys && empresaMae.data().apiKeys.cloudinaryPreset) ? empresaMae.data().apiKeys.cloudinaryPreset : 'evolution');
-                                sessionStorage.setItem('t_gemini', (empresaMae.data().apiKeys && empresaMae.data().apiKeys.gemini) ? empresaMae.data().apiKeys.gemini : '');
-                                
-                                rotearParaNicho(empresaMae.data().nicho);
-                                return;
-                            }
-                        }
-                    } else { 
-                        showToast('Credenciais não localizadas na base de dados.'); 
-                    }
+                } else {
+                    showAlert('Usuário não encontrado!', 'danger');
+                    btnLogin.disabled = false;
+                    btnLogin.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>INICIAR SESSÃO SEGURA';
                 }
-            } catch (err) { 
-                console.error("Erro no Processo de Login: ", err); 
-                showToast('Falha de rede ou estrutural ao conectar ao servidor.'); 
+
+            } catch (error) {
+                console.error('Erro login:', error);
+                showAlert('Erro de conexão: ' + error.message, 'danger');
+                btnLogin.disabled = false;
+                btnLogin.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>INICIAR SESSÃO SEGURA';
             }
-            
-            // Restaura o botão se o fluxo não deu 'return'
-            btn.innerHTML = 'INICIAR SESSÃO SEGURA'; 
-            btn.disabled = false;
+        });
+
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            setTimeout(() => {
+                const alert = alertContainer.querySelector('.alert');
+                if (alert) alert.remove();
+            }, 5000);
         }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
