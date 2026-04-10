@@ -1,5 +1,5 @@
 // =====================================================================
-// APP SUPER ADMIN - thIAguinho.Digital SaaS
+// APP SUPER ADMIN - thIAguinho.Digital SaaS (VERSÃO CORRIGIDA)
 // =====================================================================
 
 window.app = window.app || {};
@@ -32,21 +32,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // 3. NAVEGAÇÃO ENTRE SEÇÕES
 app.mostrarSecao = function(id) {
     console.log("Navegando para:", id);
-    // Esconde todas as seções
-    document.querySelectorAll('.secao').forEach(el => {
-        el.style.display = 'none';
-    });
-    
-    // Mostra a seção desejada
+    document.querySelectorAll('.secao').forEach(el => el.style.display = 'none');
     const secaoAlvo = document.getElementById('secao-' + id);
-    if (secaoAlvo) {
-        secaoAlvo.style.display = 'block';
-    }
+    if (secaoAlvo) secaoAlvo.style.display = 'block';
     
-    // Atualiza menu ativo
-    document.querySelectorAll('.nav-link').forEach(el => {
-        el.classList.remove('active');
-    });
+    document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+    event.target.closest('.nav-link')?.classList.add('active');
 };
 
 // 4. SAIR DO SISTEMA
@@ -55,16 +46,13 @@ app.sair = function() {
     window.location.href = 'index.html';
 };
 
-// 5. DASHBOARD - CONTAR CLIENTES
+// 5. DASHBOARD
 app.carregarDashboardStats = function() {
-    console.log("Carregando stats...");
     app.db.collection('oficinas').onSnapshot(snap => {
-        let ativos = 0;
-        let suspensos = 0;
-        
+        let ativos = 0, suspensos = 0;
         snap.forEach(doc => {
             const data = doc.data();
-            if (data.status === 'Liberado' || data.status === 'ativo') {
+            if (data.status === 'Liberado' || data.status === 'ativo' || data.status === 'Ativo') {
                 ativos++;
             } else {
                 suspensos++;
@@ -79,14 +67,11 @@ app.carregarDashboardStats = function() {
         if (elSuspensos) elSuspensos.innerText = suspensos;
         if (elTotal) elTotal.innerText = snap.size;
         
-        // Atualiza select do onboarding
         app.atualizarSelectOnboarding(snap);
-    }, error => {
-        console.error("Erro ao carregar stats:", error);
     });
 };
 
-// 6. ATUALIZAR SELECT DE EMPRESAS (ONBOARDING)
+// 6. ATUALIZAR SELECT
 app.atualizarSelectOnboarding = function(snap) {
     const sel = document.getElementById('selectEmpresaOnboarding');
     if (!sel) return;
@@ -98,7 +83,7 @@ app.atualizarSelectOnboarding = function(snap) {
     });
 };
 
-// 7. LISTAR CLIENTES NA TABELA
+// 7. LISTAR CLIENTES - VERSÃO CORRIGIDA COM ESTILO
 app.carregarListaClientes = function() {
     console.log("Carregando lista de clientes...");
     app.db.collection('oficinas').onSnapshot(snap => {
@@ -108,39 +93,112 @@ app.carregarListaClientes = function() {
         tbody.innerHTML = '';
         
         if (snap.empty) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-4">Nenhum cliente cadastrado ainda.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-4">Nenhum cliente cadastrado.</td></tr>';
             return;
         }
         
         snap.forEach(doc => {
             const d = doc.data();
-            const statusClass = (d.status === 'Liberado' || d.status === 'ativo') ? 'bg-success' : 'bg-danger';
+            const statusClass = (d.status === 'Liberado' || d.status === 'ativo' || d.status === 'Ativo') ? 'bg-success' : 'bg-danger';
             const statusText = d.status || 'Liberado';
             
             const row = `
-                <tr>
+                <tr class="table-row-hover">
                     <td class="text-muted small font-monospace">${doc.id.substr(0,8)}...</td>
-                    <td class="fw-bold text-white">${d.nome || 'Sem nome'}</td>
-                    <td><span class="badge bg-dark text-info">${d.nicho || 'N/A'}</span></td>
+                    <td class="fw-bold">${d.nome || 'Sem nome'}</td>
+                    <td><span class="badge bg-info text-dark">${d.nicho || 'N/A'}</span></td>
                     <td>${d.usuarioAdmin || '-'}</td>
                     <td><span class="badge ${statusClass}">${statusText}</span></td>
                     <td>
-                        <button class="btn btn-sm btn-outline-info" onclick="alert('ID: ${doc.id}')">
-                            <i class="bi bi-eye"></i>
+                        <button class="btn btn-sm btn-outline-info me-1" onclick="app.editarCliente('${doc.id}')" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="app.excluirCliente('${doc.id}', '${d.nome}')" title="Excluir">
+                            <i class="bi bi-trash"></i>
                         </button>
                     </td>
                 </tr>
             `;
             tbody.innerHTML += row;
         });
-    }, error => {
-        console.error("Erro ao carregar clientes:", error);
     });
 };
 
-// 8. FINANCEIRO MASTER
+// 8. EDITAR CLIENTE
+app.editarCliente = async function(id) {
+    try {
+        const doc = await app.db.collection('oficinas').doc(id).get();
+        if (!doc.exists) {
+            alert('Cliente não encontrado!');
+            return;
+        }
+        
+        const data = doc.data();
+        
+        // Preenche o formulário de criação com os dados
+        document.getElementById('nomeEmpresa').value = data.nome || '';
+        document.getElementById('whatsappFaturamento').value = data.whatsapp || '';
+        document.getElementById('nichoOperacional').value = data.nicho || '';
+        document.getElementById('usuarioAdmin').value = data.usuarioAdmin || '';
+        document.getElementById('senhaAdmin').value = data.senhaAdmin || '';
+        document.getElementById('statusSistema').value = data.status || 'Liberado';
+        document.getElementById('geminiKey').value = data.configuracoes?.geminiKey || '';
+        document.getElementById('cloudinaryName').value = data.configuracoes?.cloudinaryName || '';
+        document.getElementById('cloudinaryPreset').value = data.configuracoes?.cloudinaryPreset || '';
+        
+        // Módulos
+        if (data.modulos) {
+            document.getElementById('moduloFinanceiro').checked = data.modulos.financeiro || false;
+            document.getElementById('moduloCRM').checked = data.modulos.crm || false;
+            document.getElementById('moduloEstoqueVendas').checked = data.modulos.estoqueVendas || false;
+            document.getElementById('moduloEstoqueInterno').checked = data.modulos.estoqueInterno || false;
+            document.getElementById('moduloKanban').checked = data.modulos.kanban || false;
+            document.getElementById('moduloPDF').checked = data.modulos.pdf || false;
+            document.getElementById('moduloChat').checked = data.modulos.chat || false;
+            document.getElementById('moduloIA').checked = data.modulos.ia || false;
+        }
+        
+        // Armazena o ID para edição
+        sessionStorage.setItem('editandoClienteId', id);
+        
+        // Vai para tela de criação
+        app.mostrarSecao('criar');
+        
+        // Muda o texto do botão
+        const btn = document.getElementById('btnImplantar');
+        btn.innerText = 'SALVAR ALTERAÇÕES';
+        
+        alert('Dados carregados para edição. Altere o necessário e salve.');
+        
+    } catch (error) {
+        console.error("Erro ao carregar cliente:", error);
+        alert('Erro: ' + error.message);
+    }
+};
+
+// 9. EXCLUIR CLIENTE
+app.excluirCliente = async function(id, nome) {
+    if (!confirm(`⚠️ ATENÇÃO!\n\nVocê está prestes a EXCLUIR permanentemente:\n\n"${nome}"\n\nIsso apagará TODOS os dados da empresa incluindo:\n- Clientes\n- Ordens de Serviço\n- Financeiro\n- Estoque\n\nTem certeza?`)) {
+        return;
+    }
+    
+    const confirmacao = prompt('Digite "EXCLUIR" para confirmar:');
+    if (confirmacao !== 'EXCLUIR') {
+        alert('Exclusão cancelada.');
+        return;
+    }
+    
+    try {
+        await app.db.collection('oficinas').doc(id).delete();
+        alert('Cliente excluído com sucesso!');
+    } catch (error) {
+        console.error("Erro ao excluir:", error);
+        alert('Erro ao excluir: ' + error.message);
+    }
+};
+
+// 10. FINANCEIRO MASTER
 app.carregarFinanceiroMaster = function() {
-    console.log("Carregando financeiro master...");
     app.db.collection('financeiro_master')
         .orderBy('data', 'desc')
         .onSnapshot(snap => {
@@ -152,8 +210,7 @@ app.carregarFinanceiroMaster = function() {
             if (!tbody) return;
             
             tbody.innerHTML = '';
-            let totalRec = 0;
-            let totalDesp = 0;
+            let totalRec = 0, totalDesp = 0;
             
             if (snap.empty) {
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-4">Sem lançamentos.</td></tr>';
@@ -168,7 +225,7 @@ app.carregarFinanceiroMaster = function() {
                         <tr>
                             <td>${d.data || '-'}</td>
                             <td><span class="badge ${d.tipo === 'ENTRADA' ? 'bg-success' : 'bg-danger'}">${d.tipo}</span></td>
-                            <td class="text-white">${d.desc || '-'}</td>
+                            <td>${d.desc || '-'}</td>
                             <td>${d.metodo || '-'}</td>
                             <td class="fw-bold ${cor}">R$ ${(d.valor || 0).toFixed(2)}</td>
                             <td>
@@ -185,50 +242,40 @@ app.carregarFinanceiroMaster = function() {
             if (lblRec) lblRec.innerText = 'R$ ' + totalRec.toFixed(2).replace('.', ',');
             if (lblDesp) lblDesp.innerText = 'R$ ' + totalDesp.toFixed(2).replace('.', ',');
             if (lblLucro) lblLucro.innerText = 'R$ ' + (totalRec - totalDesp).toFixed(2).replace('.', ',');
-        }, error => {
-            console.error("Erro ao carregar financeiro:", error);
         });
 };
 
-// 9. DELETAR LANÇAMENTO FINANCEIRO
 app.deletarLancamento = async function(id) {
-    if (confirm('Tem certeza que deseja excluir este lançamento?')) {
+    if (confirm('Excluir este lançamento?')) {
         try {
             await app.db.collection('financeiro_master').doc(id).delete();
-            alert('Lançamento excluído!');
         } catch (error) {
-            console.error("Erro ao excluir:", error);
             alert('Erro: ' + error.message);
         }
     }
 };
 
-// 10. CONFIGURAR EVENTOS DOS FORMULÁRIOS
+// 11. CONFIGURAR LISTENERS
 app.configurarListenersFormularios = function() {
-    console.log("Configurando listeners...");
-    
-    // Botão Implantar Sistema
     const btnImplantar = document.getElementById('btnImplantar');
     if (btnImplantar) {
         btnImplantar.addEventListener('click', app.implantarSistema);
     }
     
-    // Botão Lançar Financeiro
     const btnLancarMaster = document.getElementById('btnLancarMaster');
     if (btnLancarMaster) {
         btnLancarMaster.addEventListener('click', app.lancarFinanceiroMaster);
     }
     
-    // Botão Injetar Dados
     const btnInjetar = document.getElementById('btnInjetarDados');
     if (btnInjetar) {
         btnInjetar.addEventListener('click', app.injetarDadosOnboarding);
     }
 };
 
-// 11. AÇÃO: IMPLANTAR SISTEMA
+// 12. IMPLANTAR/EDITAR SISTEMA
 app.implantarSistema = async function() {
-    console.log("Iniciando implantação...");
+    const editandoId = sessionStorage.getItem('editandoClienteId');
     
     const nomeEmpresa = document.getElementById('nomeEmpresa')?.value || '';
     const whatsapp = document.getElementById('whatsappFaturamento')?.value || '';
@@ -238,20 +285,15 @@ app.implantarSistema = async function() {
     const status = document.getElementById('statusSistema')?.value || 'Liberado';
     
     if (!nomeEmpresa || !usuario || !senha) {
-        alert('Preencha: Nome da Empresa, Usuário Admin e Senha!');
-        return;
-    }
-    
-    if (!confirm(`Criar sistema para "${nomeEmpresa}"?\n\nLogin: ${usuario}`)) {
+        alert('Preencha: Nome, Usuário Admin e Senha!');
         return;
     }
     
     const btn = document.getElementById('btnImplantar');
     btn.disabled = true;
-    btn.innerText = 'Implantando...';
+    btn.innerText = 'Processando...';
     
     try {
-        // Coleta módulos
         const modulos = {
             financeiro: document.getElementById('moduloFinanceiro')?.checked || false,
             crm: document.getElementById('moduloCRM')?.checked || false,
@@ -263,15 +305,13 @@ app.implantarSistema = async function() {
             ia: document.getElementById('moduloIA')?.checked || false
         };
         
-        // Configurações
         const config = {
             geminiKey: document.getElementById('geminiKey')?.value || null,
             cloudinaryName: document.getElementById('cloudinaryName')?.value || 'dmuvm1o6m',
             cloudinaryPreset: document.getElementById('cloudinaryPreset')?.value || 'evolution'
         };
         
-        // Cria no Firestore
-        const tenantRef = await app.db.collection('oficinas').add({
+        const dados = {
             nome: nomeEmpresa,
             nicho: nicho,
             whatsapp: whatsapp,
@@ -280,11 +320,23 @@ app.implantarSistema = async function() {
             senhaAdmin: senha,
             modulos: modulos,
             configuracoes: config,
-            dataCriacao: firebase.firestore.FieldValue.serverTimestamp(),
-            ultimoAcesso: null
-        });
+            dataAtualizacao: firebase.firestore.FieldValue.serverTimestamp()
+        };
         
-        alert(`✅ SUCESSO!\n\nCliente criado!\nID: ${tenantRef.id}\n\nO cliente já pode fazer login!`);
+        if (editandoId) {
+            // Edição
+            await app.db.collection('oficinas').doc(editandoId).update(dados);
+            alert('✅ Cliente atualizado com sucesso!');
+            sessionStorage.removeItem('editandoClienteId');
+            btn.innerText = 'IMPLANTAR SISTEMA NA NUVEM';
+        } else {
+            // Criação
+            dados.dataCriacao = firebase.firestore.FieldValue.serverTimestamp();
+            dados.ultimoAcesso = null;
+            
+            await app.db.collection('oficinas').add(dados);
+            alert('✅ SUCESSO!\n\nCliente criado!\n\nLogin: ' + usuario);
+        }
         
         // Limpa formulário
         document.getElementById('nomeEmpresa').value = '';
@@ -292,20 +344,21 @@ app.implantarSistema = async function() {
         document.getElementById('usuarioAdmin').value = '';
         document.getElementById('senhaAdmin').value = '';
         
-        // Volta para dashboard
         app.mostrarSecao('dashboard');
         
     } catch (error) {
-        console.error("Erro ao implantar:", error);
+        console.error("Erro:", error);
         alert('Erro: ' + error.message);
     } finally {
         const btn = document.getElementById('btnImplantar');
         btn.disabled = false;
-        btn.innerText = 'IMPLANTAR SISTEMA NA NUVEM';
+        if (!sessionStorage.getItem('editandoClienteId')) {
+            btn.innerText = 'IMPLANTAR SISTEMA NA NUVEM';
+        }
     }
 };
 
-// 12. AÇÃO: LANÇAR FINANCEIRO MASTER
+// 13. LANÇAR FINANCEIRO
 app.lancarFinanceiroMaster = async function() {
     const tipo = document.getElementById('tipoFinanceiroMaster')?.value || 'ENTRADA';
     const desc = document.getElementById('descFinanceiroMaster')?.value || '';
@@ -330,21 +383,18 @@ app.lancarFinanceiroMaster = async function() {
         
         alert('Lançamento registrado!');
         
-        // Fecha modal (se existir)
         const modal = bootstrap.Modal.getInstance(document.getElementById('modalFinanceiroMaster'));
         if (modal) modal.hide();
         
-        // Limpa campos
         document.getElementById('descFinanceiroMaster').value = '';
         document.getElementById('valorFinanceiroMaster').value = '';
         
     } catch (error) {
-        console.error("Erro financeiro:", error);
         alert('Erro: ' + error.message);
     }
 };
 
-// 13. AÇÃO: INJETAR DADOS (ONBOARDING)
+// 14. INJETAR DADOS
 app.injetarDadosOnboarding = async function() {
     const tenantSelect = document.getElementById('selectEmpresaOnboarding');
     const moduloDestino = document.getElementById('selectModuloDestino')?.value || 'crm';
@@ -360,9 +410,7 @@ app.injetarDadosOnboarding = async function() {
         return;
     }
     
-    if (!confirm('Isso vai escrever no banco do cliente. Continuar?')) {
-        return;
-    }
+    if (!confirm('Isso vai escrever no banco do cliente. Continuar?')) return;
     
     const btn = document.getElementById('btnInjetarDados');
     btn.disabled = true;
@@ -372,7 +420,6 @@ app.injetarDadosOnboarding = async function() {
         const dados = JSON.parse(jsonStr);
         const tenantId = tenantSelect.value;
         
-        // Mapeia coleção
         let collectionName = "";
         if (moduloDestino === "crm") collectionName = "clientes_base";
         else if (moduloDestino === "estoque") collectionName = "estoque";
@@ -397,13 +444,10 @@ app.injetarDadosOnboarding = async function() {
         }
         
         await batch.commit();
-        
         alert(`✅ Injeção concluída!\n${count} itens enviados.`);
-        
         document.getElementById('jsonInput').value = '';
         
     } catch (e) {
-        console.error(e);
         alert('Erro no JSON: ' + e.message);
     } finally {
         const btn = document.getElementById('btnInjetarDados');
@@ -412,27 +456,19 @@ app.injetarDadosOnboarding = async function() {
     }
 };
 
-// 14. ABRIR MODAL FINANCEIRO
+// 15. ABRIR MODAL FINANCEIRO
 app.abrirModalFinanceiro = function(tipo) {
     const modalEl = document.getElementById('modalFinanceiroMaster');
-    if (!modalEl) {
-        alert('Modal não encontrado!');
-        return;
-    }
+    if (!modalEl) return;
     
-    // Define o tipo
     const tipoField = document.getElementById('tipoFinanceiroMaster');
     if (tipoField) tipoField.value = tipo;
     
-    // Atualiza título
     const titulo = document.getElementById('modalFinanceiroTitulo');
-    if (titulo) {
-        titulo.innerText = tipo === 'ENTRADA' ? 'Lançar Recebimento' : 'Lançar Pagamento';
-    }
+    if (titulo) titulo.innerText = tipo === 'ENTRADA' ? 'Lançar Recebimento' : 'Lançar Pagamento';
     
-    // Mostra modal
     const modal = new bootstrap.Modal(modalEl);
     modal.show();
 };
 
-console.log("app_superadmin.js carregado com sucesso!");
+console.log("app_superadmin.js carregado!");
