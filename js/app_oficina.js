@@ -1,7 +1,7 @@
-window.app = {};
+window.app = window.app || {};
 
 // =====================================================================
-// 1. CONFIGURAÇÃO NUVEM E SESSÃO
+// 1. CONFIGURAÇÃO NUVEM E SESSÃO (MULTI-TENANT)
 // =====================================================================
 app.firebaseConfig = {
     apiKey: "AIzaSyBqIuCsHHuy_f-mBWV4JBkbyOorXpqQvqg",
@@ -13,16 +13,25 @@ app.firebaseConfig = {
 };
 
 // Inicialização segura do Firebase
-try {
-    if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-        firebase.initializeApp(app.firebaseConfig);
+(function initFirebase() {
+    try {
+        if (typeof firebase === 'undefined') {
+            console.error("❌ Firebase SDK não carregado. Verifique os scripts no HTML.");
+            return;
+        }
+        if (!firebase.apps.length) {
+            firebase.initializeApp(app.firebaseConfig);
+            console.log("✅ Firebase inicializado");
+        }
+        app.db = firebase.firestore();
+        app.db.settings({ ignoreUndefinedProperties: true });
+    } catch (e) {
+        console.error("🔴 ERRO CRÍTICO Firebase:", e);
+        alert("Erro ao conectar com o banco de dados. Recarregue a página.");
     }
-    app.db = firebase.firestore();
-} catch (e) {
-    console.error("Erro ao inicializar Firebase:", e);
-    alert("Erro crítico: Firebase não carregou. Verifique sua conexão.");
-}
+})();
 
+// Credenciais dinâmicas da sessão
 app.CLOUDINARY_CLOUD_NAME = sessionStorage.getItem('t_cloudName') || 'dmuvm1o6m'; 
 app.CLOUDINARY_UPLOAD_PRESET = sessionStorage.getItem('t_cloudPreset') || 'evolution'; 
 app.t_id = sessionStorage.getItem('t_id');
@@ -32,12 +41,26 @@ app.user_nome = sessionStorage.getItem('f_nome');
 app.user_comissao_mo = parseFloat(sessionStorage.getItem('f_comissao') || 0); 
 app.user_comissao_pecas = parseFloat(sessionStorage.getItem('f_comissao_pecas') || 0);
 
-// Chave Gemini no localStorage da oficina
-app.minhaGeminiKey = localStorage.getItem(`geminiKey_${app.t_id}`) || null;
+// Chave Gemini: busca do localStorage DA OFICINA (cada tenant tem a sua)
+app.minhaGeminiKey = null;
+(function loadGeminiKey() {
+    if (app.t_id) {
+        const key = localStorage.getItem(`geminiKey_${app.t_id}`);
+        if (key) {
+            app.minhaGeminiKey = key;            console.log("🔑 Chave Gemini carregada do localStorage");
+        } else {
+            console.warn("⚠️ Chave Gemini não encontrada no localStorage para tenant:", app.t_id);
+        }
+    }
+})();
 
-if (!app.t_id) window.location.replace('index.html');
+// Redirect se não estiver autenticado
+if (!app.t_id) {
+    console.warn("⚠️ Sem tenant ID na sessão. Redirecionando para login...");
+    window.location.replace('index.html');
+}
 
-// Bancos Locais
+// Bancos de Dados Locais na Memória
 app.bancoOSCompleto = [];
 app.bancoEstoque = [];
 app.bancoFin = [];
@@ -47,33 +70,37 @@ app.bancoMensagens = [];
 app.bancoAuditoria = [];
 app.bancoEquipe = []; 
 app.bancoVales = [];
-app.fotosOSAtual = [];app.historicoOSAtual = [];
+app.fotosOSAtual = [];
+app.historicoOSAtual = [];
 app.chatActiveClienteId = null;
 app.osParaFaturar = null;
 app.filtroFinDataInicio = null;
 app.filtroFinDataFim = null;
 app.bancoFinFiltrado = [];
+app.iaTrabalhando = false;
 
 // =====================================================================
-// AUDITORIA
+// MOTOR DE AUDITORIA GLOBAL
 // =====================================================================
 app.registrarAuditoriaGlobal = async function(modulo, acaoRealizada) {
     try {
+        if (!app.db) return;
         await app.db.collection('lixeira_auditoria').add({
             tenantId: app.t_id,
             apagadoEm: new Date().toISOString(),
-            apagadoPor: app.user_nome,
-            placaOriginal: modulo,
-            motivo: acaoRealizada
+            apagadoPor: app.user_nome || 'Sistema',
+            placaOriginal: modulo || 'N/A',
+            motivo: acaoRealizada || 'Sem motivo'
         });
-    } catch(e) { console.error("Erro auditoria:", e); }
+    } catch(e) { 
+        console.error("Erro auditoria:", e); 
+    }
 };
-
 // =====================================================================
 // 2. INICIALIZAÇÃO BLINDADA
 // =====================================================================
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("🟢 DOM Carregado. Iniciando sistema...");
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log("🟢 DOMContentLoaded. Iniciando sistema...");
     
     try {
         // Elementos de cabeçalho
@@ -83,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const lblUsuario = document.getElementById('lblUsuario');
         if(lblUsuario) lblUsuario.innerText = app.user_nome || 'A Carregar...';
         
-        // RBAC Styles
+        // RBAC: aplica regras de visibilidade
         const style = document.createElement('style');
         if (app.t_role === 'equipe') {
             style.innerHTML = '.admin-only, .gestao-only { display: none !important; } .mecanico-only { display: flex !important; display: block !important; }';
@@ -96,7 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             style.innerHTML = '.mecanico-only { display: none !important; } .gestao-only, .admin-only { display: block !important; display: inline-block !important; } tr .gestao-only, th.gestao-only, td.gestao-only { display: table-cell !important; }';
             const lblCom = document.getElementById('lblComissaoUser');
-            if(lblCom) lblCom.innerText = `Admin Proprietário`;        }
+            if(lblCom) lblCom.innerText = `Admin Proprietário`;
+        }
         document.head.appendChild(style);
 
         // Menu e Tela Inicial
@@ -104,30 +132,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const linkInicio = document.querySelector('.nav-sidebar .nav-link');
         if(linkInicio) app.mostrarTela('tela_jarvis', 'thIAguinho Inteligência Automotiva', linkInicio);
         
-        // Listeners em Tempo Real
-        app.iniciarEscutaOS();
-        app.iniciarEscutaCrm();
-        app.iniciarEscutaMensagens();
-        app.iniciarEscutaMensagensInternas();
-        app.iniciarEscutaEquipeInternaParaBox(); 
-        app.iniciarEscutaIA();
-        
-        if(app.t_role === 'admin' || app.t_role === 'gerente') {
-            app.iniciarEscutaEstoque();
-            app.iniciarEscutaFinanceiro();
-            app.iniciarEscutaValesRH();
-        }
-        if(app.t_role === 'admin') {
-            app.iniciarEscutaLixeira();
+        // Listeners em Tempo Real (só se Firebase OK)
+        if (app.db) {
+            app.iniciarEscutaOS();
+            app.iniciarEscutaCrm();
+            app.iniciarEscutaMensagens();
+            app.iniciarEscutaMensagensInternas();
+            app.iniciarEscutaEquipeInternaParaBox(); 
+            app.iniciarEscutaIA();
+            
+            if(app.t_role === 'admin' || app.t_role === 'gerente') {
+                app.iniciarEscutaEstoque();
+                app.iniciarEscutaFinanceiro();
+                app.iniciarEscutaValesRH();
+            }            if(app.t_role === 'admin') {
+                app.iniciarEscutaLixeira();
+            }
+        } else {
+            console.warn("⚠️ Firebase não disponível. Funcionalidades offline limitadas.");
+            app.showToast("Modo offline: algumas funções indisponíveis", "warning");
         }
         
         // Configurações Externas
         app.configurarCloudinary();
         
         // Configuração Gemini na UI (se admin)
-        if(app.t_role === 'admin') app.renderizarConfigGemini();
+        if(app.t_role === 'admin') {
+            setTimeout(app.renderizarConfigGemini, 1000); // Delay para garantir DOM pronto
+        }
 
-        // Evento Financeiro
+        // Evento Financeiro: mostrar/ocultar campo RH
         const selectCategoria = document.getElementById('fin_categoria');
         if (selectCategoria) {
             selectCategoria.addEventListener('change', (e) => {
@@ -143,9 +177,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
+        // Verifica status da chave Gemini e atualiza UI
+        app.atualizarStatusGemini();
+        
         console.log("✅ Sistema inicializado com sucesso.");
+        app.showToast("Sistema carregado!", "success");
+        
     } catch (err) {
-        console.error("🔴 ERRO FATAL NA INICIALIZAÇÃO:", err);        alert("Erro ao carregar o painel. Verifique o console (F12).");
+        console.error("🔴 ERRO FATAL NA INICIALIZAÇÃO:", err);
+        app.showToast("Erro ao carregar. Recarregue a página.", "error");
     }
 });
 
@@ -154,28 +194,36 @@ document.addEventListener('DOMContentLoaded', () => {
 // =====================================================================
 app.mostrarTela = function(id, titulo, btn) {
     try {
-        document.querySelectorAll('.modulo-tela').forEach(t => t.style.display = 'none');
+        // Esconde todas as telas        document.querySelectorAll('.modulo-tela').forEach(t => {
+            if(t) t.style.display = 'none';
+        });
+        
+        // Mostra a tela alvo
         const tela = document.getElementById(id); 
         if(tela) tela.style.display = 'block';
         
+        // Atualiza títulos
         const hTitulo = document.getElementById('tituloPagina'); 
         if(hTitulo) hTitulo.innerText = titulo || '';
-        
         const hTituloMobile = document.getElementById('tituloPaginaMobile'); 
         if(hTituloMobile) hTituloMobile.innerText = titulo || '';
         
+        // Atualiza menu ativo
         if(btn) { 
             document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active')); 
             btn.classList.add('active'); 
         }
         
+        // Fecha sidebar no mobile após navegar
         if (window.innerWidth < 768) {
             const sidebar = document.getElementById('sidebar');
             if(sidebar) sidebar.classList.remove('show');
             const overlay = document.querySelector('.sidebar-overlay');
             if(overlay) overlay.classList.remove('show');
         }
-    } catch(e) { console.error("Erro navegação:", e); }
+    } catch(e) { 
+        console.error("Erro navegação:", e); 
+    }
 };
 
 app.sair = function() { 
@@ -184,17 +232,20 @@ app.sair = function() {
 };
 
 // =====================================================================
-// MENU
+// MENU LATERAL
 // =====================================================================
 app.construirMenuLateral = function() {
     const menu = document.getElementById('menuLateral'); 
-    if (!menu) return;
+    if (!menu) {
+        console.warn("⚠️ Elemento #menuLateral não encontrado");
+        return;
+    }
     
     let html = `<a class="nav-link active" onclick="app.mostrarTela('tela_jarvis', 'Central thIAguinho', this)"><i class="bi bi-robot"></i> Central thIAguinho (I.A)</a>`;
     html += `<a class="nav-link" onclick="app.mostrarTela('tela_os', 'Pátio Kanban', this)"><i class="bi bi-kanban text-info"></i> Pátio Kanban (O.S)</a>`;
-    html += `<a class="nav-link" onclick="app.mostrarTela('tela_arquivo', 'Arquivo Morto', this); app.renderizarTabelaArquivo();"><i class="bi bi-archive text-warning"></i> Arquivo Morto / Entregues</a>`;
-    html += `<a class="nav-link" onclick="app.mostrarTela('tela_chat_interno', 'Chat Equipe', this)"><i class="bi bi-headset text-warning"></i> Chat Equipe Interna</a>`;
-        if (app.t_role === 'admin' || app.t_role === 'gerente') {
+    html += `<a class="nav-link" onclick="app.mostrarTela('tela_arquivo', 'Arquivo Morto', this); app.renderizarTabelaArquivo();"><i class="bi bi-archive text-warning"></i> Arquivo Morto / Entregues</a>`;    html += `<a class="nav-link" onclick="app.mostrarTela('tela_chat_interno', 'Chat Equipe', this)"><i class="bi bi-headset text-warning"></i> Chat Equipe Interna</a>`;
+    
+    if (app.t_role === 'admin' || app.t_role === 'gerente') {
         html += `<a class="nav-link" onclick="app.mostrarTela('tela_crm', 'Base CRM', this)"><i class="bi bi-person-vcard text-info"></i> CRM e Clientes</a>`;
         html += `<a class="nav-link" onclick="app.mostrarTela('tela_chat', 'Chat CRM Global', this)"><i class="bi bi-chat-dots-fill text-primary"></i> Chat Global c/ Cliente <span id="chatBadgeGlobal" class="badge bg-danger badge-nav d-none">0</span></a>`;
         html += `<a class="nav-link" onclick="app.mostrarTela('tela_estoque', 'Armazém / Estoque', this)"><i class="bi bi-box-seam text-primary"></i> Estoque Físico e NFs</a>`;
@@ -208,7 +259,7 @@ app.construirMenuLateral = function() {
 };
 
 // =====================================================================
-// TOASTS
+// TOASTS (NOTIFICAÇÕES)
 // =====================================================================
 app.showToast = function(msg, type='success') {
     try {
@@ -231,19 +282,24 @@ app.showToast = function(msg, type='success') {
                 toastEl.style.opacity = '0';
                 setTimeout(() => toastEl.remove(), 500);
             }, 4000);
+        } else {
+            console.warn("⚠️ Container de toasts não encontrado");
+            alert(msg); // Fallback
         }
-    } catch(e) { console.error("Erro toast:", e); }
+    } catch(e) { 
+        console.error("Erro toast:", e); 
+    }
 };
 
 // =====================================================================
-// 3. CRM
-// =====================================================================
+// 3. CRM// =====================================================================
 app.buscarCEP = function(cep) {
     cep = cep.replace(/\D/g, ''); 
     if(cep.length !== 8) return;
     
     fetch(`https://viacep.com.br/ws/${cep}/json/`).then(res => res.json()).then(data => {
-        if(!data.erro) {            const elRua = document.getElementById('c_rua');
+        if(!data.erro) {
+            const elRua = document.getElementById('c_rua');
             const elBairro = document.getElementById('c_bairro');
             const elCidade = document.getElementById('c_cidade');
             if(elRua) elRua.value = data.logradouro;
@@ -263,16 +319,21 @@ app.validarDocUI = function(input) {
 };
 
 app.iniciarEscutaCrm = function() {
+    if(!app.db) return;
     app.db.collection('clientes_base').where('tenantId', '==', app.t_id).onSnapshot(snap => {
         app.bancoCrm = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const tb = document.getElementById('tabelaCrmCorpo');
         if(tb) {
-            tb.innerHTML = app.bancoCrm.map(c => `<tr><td><strong class="text-white">${c.nome}</strong></td><td>${c.documento||'-'}</td><td>${c.telefone}</td><td class="text-info">${c.usuario || 'S/Acesso'}</td><td class="gestao-only text-end"><button class="btn btn-sm btn-outline-info me-1 border-0 shadow-sm" onclick="app.abrirModalCRM('edit', '${c.id}')"><i class="bi bi-pencil"></i> Editar</button><button class="btn btn-sm btn-outline-danger border-0 admin-only shadow-sm" onclick="app.apagarCliente('${c.id}')"><i class="bi bi-trash"></i></button></td></tr>`).join('');
+            if(app.bancoCrm.length === 0) {
+                tb.innerHTML = '<tr><td colspan="5" class="text-center text-white-50 p-4">Nenhum cliente cadastrado.</td></tr>';
+            } else {
+                tb.innerHTML = app.bancoCrm.map(c => `<tr><td><strong class="text-white">${c.nome||''}</strong></td><td>${c.documento||'-'}</td><td>${c.telefone||''}</td><td class="text-info">${c.usuario || 'S/Acesso'}</td><td class="gestao-only text-end"><button class="btn btn-sm btn-outline-info me-1 border-0 shadow-sm" onclick="app.abrirModalCRM('edit', '${c.id}')"><i class="bi bi-pencil"></i> Editar</button><button class="btn btn-sm btn-outline-danger border-0 admin-only shadow-sm" onclick="app.apagarCliente('${c.id}')"><i class="bi bi-trash"></i></button></td></tr>`).join('');
+            }
         }
         const list = document.getElementById('listaClientesCRM');
-        if(list) list.innerHTML = app.bancoCrm.map(c => `<option value="${c.nome}" data-id="${c.id}">Tel: ${c.telefone}</option>`).join('');
+        if(list) list.innerHTML = app.bancoCrm.map(c => `<option value="${c.nome||''}" data-id="${c.id}">Tel: ${c.telefone||''}</option>`).join('');
         app.renderListaChatCRM();
-    });
+    }, err => console.error("Erro escuta CRM:", err));
 };
 
 app.abrirModalCRM = function(mode = 'nova', id = '') {
@@ -280,8 +341,7 @@ app.abrirModalCRM = function(mode = 'nova', id = '') {
     if(frm) frm.reset();
     
     const idField = document.getElementById('crm_id');
-    if(idField) idField.value = '';
-    
+    if(idField) idField.value = '';    
     const passField = document.getElementById('c_pass');
     if(passField) passField.value = Math.random().toString(36).slice(-6);
     
@@ -292,7 +352,8 @@ app.abrirModalCRM = function(mode = 'nova', id = '') {
                 const el = document.getElementById(k);
                 if(el) { 
                     let prop = k.replace('c_', ''); 
-                    if(k==='crm_id') prop='id';                     if(k==='c_doc') prop='documento'; 
+                    if(k==='crm_id') prop='id'; 
+                    if(k==='c_doc') prop='documento'; 
                     if(k==='c_tel') prop='telefone'; 
                     if(k==='c_user') prop='usuario'; 
                     if(k==='c_pass') prop='senha'; 
@@ -303,11 +364,13 @@ app.abrirModalCRM = function(mode = 'nova', id = '') {
         }
     }
     const modal = document.getElementById('modalCrm'); 
-    if(modal) new bootstrap.Modal(modal).show();
+    if(modal && typeof bootstrap !== 'undefined') new bootstrap.Modal(modal).show();
 };
 
 app.salvarClienteCRM = async function(e) {
     e.preventDefault();
+    if(!app.db) return app.showToast("Banco de dados não conectado.", "error");
+    
     const idField = document.getElementById('crm_id'); 
     const id = idField ? idField.value : '';
     const docElem = document.getElementById('c_doc'); 
@@ -317,18 +380,17 @@ app.salvarClienteCRM = async function(e) {
     const payload = { 
         tenantId: app.t_id, 
         nome: nomeCli, 
-        telefone: document.getElementById('c_tel').value, 
+        telefone: document.getElementById('c_tel')?.value || '', 
         documento: docValue, 
-        email: document.getElementById('c_email').value,
-        cep: document.getElementById('c_cep').value, 
-        rua: document.getElementById('c_rua').value, 
-        num: document.getElementById('c_num').value, 
-        bairro: document.getElementById('c_bairro').value, 
-        cidade: document.getElementById('c_cidade').value, 
-        usuario: document.getElementById('c_user').value.trim(), 
-        senha: document.getElementById('c_pass').value.trim(), 
-        anotacoes: document.getElementById('c_notas').value 
-    };
+        email: document.getElementById('c_email')?.value || '',
+        cep: document.getElementById('c_cep')?.value || '', 
+        rua: document.getElementById('c_rua')?.value || '', 
+        num: document.getElementById('c_num')?.value || '', 
+        bairro: document.getElementById('c_bairro')?.value || '', 
+        cidade: document.getElementById('c_cidade')?.value || '', 
+        usuario: (document.getElementById('c_user')?.value || '').trim(), 
+        senha: (document.getElementById('c_pass')?.value || '').trim(), 
+        anotacoes: document.getElementById('c_notas')?.value || ''    };
     
     try {
         if(id) { 
@@ -341,11 +403,12 @@ app.salvarClienteCRM = async function(e) {
             app.registrarAuditoriaGlobal("CRM", `Cadastrou cliente: ${nomeCli}`);
         }
     } catch(err) {
-        console.error("Erro salvar cliente:", err);        app.showToast("Erro: " + err.message, "error");
+        console.error("Erro salvar cliente:", err);
+        app.showToast("Erro: " + err.message, "error");
     }
     
     e.target.reset(); 
-    const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalCrm'));
+    const modalInst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(document.getElementById('modalCrm')) : null;
     if(modalInst) modalInst.hide();
 };
 
@@ -354,6 +417,8 @@ app.apagarCliente = async function(id) {
         app.showToast("Apenas proprietário pode apagar.", "error"); 
         return; 
     }
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
+    
     if(confirm("Apagar cliente?")) { 
         try {
             const c = app.bancoCrm.find(x => x.id === id);
@@ -368,19 +433,18 @@ app.apagarCliente = async function(id) {
 };
 
 app.aoSelecionarClienteOS = function() {
-    const nomeDigitado = document.getElementById('os_cliente').value.trim();
-    const cliente = app.bancoCrm.find(c => c.nome.toLowerCase() === nomeDigitado.toLowerCase());
+    const nomeDigitado = (document.getElementById('os_cliente')?.value || '').trim();
+    const cliente = app.bancoCrm.find(c => c.nome?.toLowerCase() === nomeDigitado.toLowerCase());
     if(cliente) { 
         const elCel = document.getElementById('os_celular');
         const elId = document.getElementById('os_cliente_id');
         if(elCel) elCel.value = cliente.telefone || ''; 
-        if(elId) elId.value = cliente.id; 
-    }
+        if(elId) elId.value = cliente.id;     }
 };
 
 app.editarClienteRapido = function() {
-    const nome = document.getElementById('os_cliente').value.trim();
-    const cliente = app.bancoCrm.find(c => c.nome.toLowerCase() === nome.toLowerCase());
+    const nome = (document.getElementById('os_cliente')?.value || '').trim();
+    const cliente = app.bancoCrm.find(c => c.nome?.toLowerCase() === nome.toLowerCase());
     if(cliente) { 
         app.abrirModalCRM('edit', cliente.id); 
     } else { 
@@ -390,17 +454,18 @@ app.editarClienteRapido = function() {
     }
 };
 
-app.enviarWhatsAppAprovacao = function() {    const nome = document.getElementById('os_cliente').value;
-    const cel = document.getElementById('os_celular').value;
+app.enviarWhatsAppAprovacao = function() {
+    const nome = document.getElementById('os_cliente')?.value || '';
+    const cel = document.getElementById('os_celular')?.value || '';
     const cZ = app.bancoCrm.find(x => x.nome === nome);
     if(!cel) return app.showToast("Celular não informado.", "error");
     
     let baseURL = window.location.origin + window.location.pathname.replace('painel_oficina.html', '');
     const u = baseURL + 'clientes/projeto_oficina.html';
     
-    let txt = `Olá ${nome}! A O.S. foi atualizada na *${app.t_nome}*.\nAcesse: ${u}`;
+    let txt = `Olá ${nome}! A O.S. foi atualizada na *${app.t_nome}*.\\nAcesse: ${u}`;
     if(cZ && cZ.usuario) { 
-        txt += `\nLogin: ${cZ.usuario}\nPIN: ${cZ.senha}`; 
+        txt += `\\nLogin: ${cZ.usuario}\\nPIN: ${cZ.senha}`; 
     }
     
     window.open(`https://wa.me/55${cel.replace(/\D/g, '')}?text=${encodeURIComponent(txt)}`, '_blank');
@@ -410,9 +475,10 @@ app.enviarWhatsAppAprovacao = function() {    const nome = document.getElementBy
 // 4. CHAT
 // =====================================================================
 app.iniciarEscutaMensagens = function() {
+    if(!app.db) return;
     app.db.collection('mensagens').where('tenantId', '==', app.t_id).onSnapshot(snap => {
         app.bancoMensagens = snap.docs.map(d => ({id: d.id, ...d.data()}));
-        app.bancoMensagens.sort((a,b) => (a.timestamp?.toMillis()||0) - (b.timestamp?.toMillis()||0));
+        app.bancoMensagens.sort((a,b) => (a.timestamp?.toMillis?.()||0) - (b.timestamp?.toMillis?.()||0));
         
         let nL = app.bancoMensagens.filter(m => m.sender === 'cliente' && !m.lidaAdmin).length;
         const badge = document.getElementById('chatBadgeGlobal');
@@ -422,8 +488,7 @@ app.iniciarEscutaMensagens = function() {
                 badge.classList.remove('d-none'); 
             } else { 
                 badge.classList.add('d-none'); 
-            } 
-        }
+            }         }
         
         app.renderListaChatCRM();
         if(app.chatActiveClienteId) {
@@ -432,17 +497,23 @@ app.iniciarEscutaMensagens = function() {
                 app.abrirChatCRM(app.chatActiveClienteId, chatNomeEl.innerText.replace('Atendimento Ativo: ', ''));
             }
         }
-    });
+    }, err => console.error("Erro escuta mensagens:", err));
 };
 
 app.renderListaChatCRM = function() {
     const lista = document.getElementById('chatListaClientesCRM'); 
     if(!lista) return;
     
-    lista.innerHTML = app.bancoCrm.map(c => {        const naoLidas = app.bancoMensagens.filter(m => m.clienteId === c.id && m.sender === 'cliente' && !m.lidaAdmin).length;
+    if(app.bancoCrm.length === 0) {
+        lista.innerHTML = '<div class="text-center text-white-50 p-4">Nenhum cliente cadastrado.</div>';
+        return;
+    }
+    
+    lista.innerHTML = app.bancoCrm.map(c => {
+        const naoLidas = app.bancoMensagens.filter(m => m.clienteId === c.id && m.sender === 'cliente' && !m.lidaAdmin).length;
         const bHtml = naoLidas > 0 ? `<span class="badge bg-danger ms-2">${naoLidas}</span>` : '';
-        return `<button class="list-group-item list-group-item-action bg-transparent text-white border-secondary py-3 d-flex justify-content-between align-items-center" onclick="app.abrirChatCRM('${c.id}', '${c.nome}')">
-            <span><i class="bi bi-person-circle text-primary me-2"></i> ${c.nome}</span>${bHtml}
+        return `<button class="list-group-item list-group-item-action bg-transparent text-white border-secondary py-3 d-flex justify-content-between align-items-center" onclick="app.abrirChatCRM('${c.id}', '${(c.nome||'').replace(/'/g, "\\'")}')">
+            <span><i class="bi bi-person-circle text-primary me-2"></i> ${c.nome||''}</span>${bHtml}
         </button>`;
     }).join('');
 };
@@ -451,7 +522,7 @@ app.abrirChatCRM = function(clienteId, nomeCliente) {
     app.chatActiveClienteId = clienteId;
     const chatNomeEl = document.getElementById('chatNomeCliente');
     if(chatNomeEl) {
-        chatNomeEl.innerHTML = `<span class="text-white-50">Atendimento Ativo:</span> <b class="text-accent fs-5">${nomeCliente}</b>`;
+        chatNomeEl.innerHTML = `<span class="text-white-50">Atendimento Ativo:</span> <b class="text-accent fs-5">${nomeCliente||''}</b>`;
     }
     
     const chatInputArea = document.getElementById('chatAreaInputGlobal');
@@ -466,10 +537,9 @@ app.abrirChatCRM = function(clienteId, nomeCliente) {
         area.innerHTML = '<div class="text-center text-white-50 mt-5 pt-5"><i class="bi bi-chat-dots display-1 mb-4 opacity-50"></i><p>Inicie o Atendimento.</p></div>';
     } else {
         mD.forEach(x => {
-            if(x.sender === 'cliente' && !x.lidaAdmin) { 
-                app.db.collection('mensagens').doc(x.id).update({lidaAdmin: true}); 
+            if(x.sender === 'cliente' && !x.lidaAdmin && app.db) {                 app.db.collection('mensagens').doc(x.id).update({lidaAdmin: true}).catch(()=>{}); 
             }
-            const t = x.timestamp ? new Date(x.timestamp.toDate()).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : 'agora';
+            const t = x.timestamp?.toDate ? x.timestamp.toDate().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : 'agora';
             let c = x.text || '';
             
             if(x.fileUrl) {
@@ -488,7 +558,9 @@ app.abrirChatCRM = function(clienteId, nomeCliente) {
         area.scrollTop = area.scrollHeight;
     }
 };
+
 app.enviarMensagemChatGlobal = async function() {
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     const input = document.getElementById('inputChatGlobal'); 
     const val = input ? input.value.trim() : '';
     if(!val || !app.chatActiveClienteId) return;
@@ -510,11 +582,11 @@ app.enviarMensagemChatGlobal = async function() {
 };
 
 app.enviarAnexoChatGlobal = async function() {
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     const inp = document.getElementById('chatFileInputGlobal');
     if(!inp || !inp.files || inp.files.length === 0 || !app.chatActiveClienteId) return;
     
-    app.showToast("Upload...", "warning");
-    try {
+    app.showToast("Upload...", "warning");    try {
         const fd = new FormData(); 
         fd.append('file', inp.files[0]); 
         fd.append('upload_preset', app.CLOUDINARY_UPLOAD_PRESET);
@@ -535,40 +607,44 @@ app.enviarAnexoChatGlobal = async function() {
             });
             inp.value = ''; 
             app.showToast("Enviado!", "success");
+        } else {
+            app.showToast("Falha no upload: " + (data.error?.message || 'Erro desconhecido'), "error");
         }
     } catch(e) { 
-        console.error(e);         app.showToast("Falha: " + e.message, "error"); 
+        console.error(e); 
+        app.showToast("Falha: " + e.message, "error"); 
     }
 };
 
 app.iniciarEscutaMensagensInternas = function() {
+    if(!app.db) return;
     app.db.collection('chat_interno').where('tenantId', '==', app.t_id).onSnapshot(snap => {
         let msgs = snap.docs.map(d => d.data());
-        msgs.sort((a,b) => (a.timestamp?.toMillis()||0) - (b.timestamp?.toMillis()||0));
+        msgs.sort((a,b) => (a.timestamp?.toMillis?.()||0) - (b.timestamp?.toMillis?.()||0));
         const area = document.getElementById('chatAreaMsgInterno');
         if(area) {
             if(msgs.length === 0) {
                 area.innerHTML = '<div class="text-center text-white-50 mt-5 pt-5"><i class="bi bi-headset display-1 opacity-25"></i><p>Chat limpo.</p></div>';
             } else {
                 area.innerHTML = msgs.map(m => {
-                    const t = m.timestamp ? new Date(m.timestamp.toDate()).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : 'agora';
+                    const t = m.timestamp?.toDate ? m.timestamp.toDate().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : 'agora';
                     const cssClass = m.usuario === app.user_nome ? 'admin' : 'cliente'; 
-                    return `<div class="message ${cssClass} shadow-sm"><strong>${m.usuario}:</strong><br>${m.text||''}<small class="d-block text-end mt-1" style="font-size:0.7rem;opacity:0.7;">${t}</small></div>`;
+                    return `<div class="message ${cssClass} shadow-sm"><strong>${m.usuario||''}:</strong><br>${m.text||''}<small class="d-block text-end mt-1" style="font-size:0.7rem;opacity:0.7;">${t}</small></div>`;
                 }).join('');
                 area.scrollTop = area.scrollHeight;
             }
         }
-    });
+    }, err => console.error("Erro chat interno:", err));
 };
-
 app.enviarMensagemInterna = async function() {
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     const inp = document.getElementById('inputChatInterno'); 
     if(!inp || !inp.value.trim()) return;
     
     try {
         await app.db.collection('chat_interno').add({ 
             tenantId: app.t_id, 
-            usuario: app.user_nome, 
+            usuario: app.user_nome || 'Sistema', 
             text: inp.value.trim(), 
             timestamp: firebase.firestore.FieldValue.serverTimestamp() 
         });
@@ -583,16 +659,22 @@ app.enviarMensagemInterna = async function() {
 // 5. ESTOQUE
 // =====================================================================
 app.iniciarEscutaEstoque = function() {
+    if(!app.db) return;
     app.db.collection('estoque').where('tenantId', '==', app.t_id).onSnapshot(snap => {
         app.bancoEstoque = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const tbody = document.getElementById('tabelaEstoqueCorpo');
-        if(tbody) {            tbody.innerHTML = app.bancoEstoque.map(p => `<tr><td><small class="text-white-50">${p.fornecedor||'N/A'}</small><br><span class="badge bg-primary">NF: ${p.nf||'S/N'}</span></td><td><span class="text-warning fw-bold font-monospace">${p.sku||'-'}</span></td><td><span class="text-info small">[NCM: ${p.ncm||'-'}]</span></td><td><strong class="text-white">${p.desc}</strong></td><td><span class="badge bg-secondary px-3 py-2 fs-6 shadow-sm">${p.qtd} un</span></td><td class="gestao-only text-danger fw-bold">R$ ${p.custo.toFixed(2)}</td><td class="text-success fw-bold fs-6">R$ ${p.venda.toFixed(2)}</td><td class="gestao-only text-end"><button class="btn btn-sm btn-outline-info shadow-sm me-1" onclick="app.abrirModalNF('edit', '${p.id}')"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger shadow-sm admin-only" onclick="app.apagarProduto('${p.id}')"><i class="bi bi-trash-fill"></i></button></td></tr>`).join('');
+        if(tbody) {
+            if(app.bancoEstoque.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-white-50 p-4">Estoque vazio.</td></tr>';
+            } else {
+                tbody.innerHTML = app.bancoEstoque.map(p => `<tr><td><small class="text-white-50">${p.fornecedor||'N/A'}</small><br><span class="badge bg-primary">NF: ${p.nf||'S/N'}</span></td><td><span class="text-warning fw-bold font-monospace">${p.sku||'-'}</span></td><td><span class="text-info small">[NCM: ${p.ncm||'-'}]</span></td><td><strong class="text-white">${p.desc||''}</strong></td><td><span class="badge bg-secondary px-3 py-2 fs-6 shadow-sm">${p.qtd||0} un</span></td><td class="gestao-only text-danger fw-bold">R$ ${(p.custo||0).toFixed(2)}</td><td class="text-success fw-bold fs-6">R$ ${(p.venda||0).toFixed(2)}</td><td class="gestao-only text-end"><button class="btn btn-sm btn-outline-info shadow-sm me-1" onclick="app.abrirModalNF('edit', '${p.id}')"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger shadow-sm admin-only" onclick="app.apagarProduto('${p.id}')"><i class="bi bi-trash-fill"></i></button></td></tr>`).join('');
+            }
         }
         const sel = document.getElementById('selectProdutoEstoque');
         if(sel) {
-            sel.innerHTML = '<option value="">Puxar Peça...</option>' + app.bancoEstoque.filter(p=>p.qtd>0).map(p => `<option value="${p.id}" data-venda="${p.venda}" data-custo="${p.custo}" data-desc="${p.desc}" data-ncm="${p.ncm||'-'}">[Est: ${p.qtd}] - ${p.sku ? '('+p.sku+') ' : ''}${p.desc} (R$ ${p.venda.toFixed(2)})</option>`).join('');
+            sel.innerHTML = '<option value="">Puxar Peça...</option>' + app.bancoEstoque.filter(p=>(p.qtd||0)>0).map(p => `<option value="${p.id}" data-venda="${p.venda||0}" data-custo="${p.custo||0}" data-desc="${p.desc||''}" data-ncm="${p.ncm||'-'}">[Est: ${p.qtd||0}] - ${p.sku ? '('+p.sku+') ' : ''}${p.desc||''} (R$ ${(p.venda||0).toFixed(2)})</option>`).join('');
         }
-    });
+    }, err => console.error("Erro escuta estoque:", err));
 };
 
 app.abrirModalNF = function(mode='nova', id='') {
@@ -602,8 +684,7 @@ app.abrirModalNF = function(mode='nova', id='') {
     const corpoItens = document.getElementById('corpoItensNF');
     if(corpoItens) corpoItens.innerHTML = '';
     
-    const pId = document.getElementById('p_id');
-    if(pId) pId.value = '';
+    const pId = document.getElementById('p_id');    if(pId) pId.value = '';
     
     const nfData = document.getElementById('nf_data');
     if(nfData) nfData.value = new Date().toISOString().split('T')[0];
@@ -630,12 +711,13 @@ app.abrirModalNF = function(mode='nova', id='') {
     }
     
     const modal = document.getElementById('modalNF');
-    if(modal) new bootstrap.Modal(modal).show();
+    if(modal && typeof bootstrap !== 'undefined') new bootstrap.Modal(modal).show();
 };
 
 app.processarXML = function(event) {
     const file = event.target.files[0]; 
-    if(!file) return;    
+    if(!file) return;
+    
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
@@ -651,8 +733,7 @@ app.processarXML = function(event) {
                 const nfNum = document.getElementById('nf_numero');
                 if(nfNum) nfNum.value = ide.getElementsByTagName("nNF")[0]?.textContent || '';
             }
-            
-            const det = xmlDoc.getElementsByTagName("det");
+                        const det = xmlDoc.getElementsByTagName("det");
             const corpoItens = document.getElementById('corpoItensNF');
             if(corpoItens) corpoItens.innerHTML = '';
             
@@ -679,12 +760,13 @@ app.processarXML = function(event) {
 
 app.adicionarLinhaNF = function(desc='', ncm='', cfop='', qtd=1, custo=0, venda=0, sku='') {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td><input type="text" class="form-control form-control-sm bg-dark text-warning border-secondary p-2 font-monospace it-sku" value="${sku}" placeholder="Cód..."></td>
-                    <td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-2 it-desc" value="${desc}" required></td>
-                    <td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-2 it-ncm" value="${ncm}"></td>
-                    <td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-2 it-cfop" value="${cfop}"></td>
+    tr.innerHTML = `<td><input type="text" class="form-control form-control-sm bg-dark text-warning border-secondary p-2 font-monospace it-sku" value="${sku||''}" placeholder="Cód..."></td>
+                    <td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-2 it-desc" value="${desc||''}" required></td>
+                    <td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-2 it-ncm" value="${ncm||''}"></td>
+                    <td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary p-2 it-cfop" value="${cfop||''}"></td>
                     <td><input type="number" class="form-control form-control-sm bg-dark text-white border-secondary p-2 it-qtd" value="${qtd}" min="1"></td>
-                    <td><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-danger border-secondary p-2 it-custo" value="${custo}"></td>                    <td><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-success border-secondary p-2 it-venda fw-bold" value="${venda}"></td>
+                    <td><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-danger border-secondary p-2 it-custo" value="${custo}"></td>
+                    <td><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-success border-secondary p-2 it-venda fw-bold" value="${venda}"></td>
                     <td><button type="button" class="btn btn-sm btn-outline-danger p-0 px-2 mt-1" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>`;
     
     const corpoItens = document.getElementById('corpoItensNF');
@@ -700,13 +782,14 @@ app.verificarPgtoCompraNF = function() {
         } else { 
             d.style.display = 'none'; 
             const parc = document.getElementById('nf_parcelas');
-            if(parc) parc.value = "1x"; 
-        } 
+            if(parc) parc.value = "1x";         } 
     }
 };
 
 app.salvarEntradaEstoque = async function(e) {
     e.preventDefault();
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
+    
     const id = document.getElementById('p_id')?.value || ''; 
     const fornecedor = document.getElementById('nf_fornecedor')?.value || ''; 
     const nf = document.getElementById('nf_numero')?.value || ''; 
@@ -733,7 +816,8 @@ app.salvarEntradaEstoque = async function(e) {
                 batch.update(app.db.collection('estoque').doc(id), { 
                     fornecedor: fornecedor, 
                     nf: nf, 
-                    desc: itDesc ? itDesc.value : '',                     sku: itSku ? itSku.value.trim() : '', 
+                    desc: itDesc ? itDesc.value : '', 
+                    sku: itSku ? itSku.value.trim() : '', 
                     qtd: itQtd ? parseFloat(itQtd.value) : 0, 
                     custo: itCusto ? parseFloat(itCusto.value) : 0, 
                     venda: itVenda ? parseFloat(itVenda.value) : 0, 
@@ -747,8 +831,7 @@ app.salvarEntradaEstoque = async function(e) {
                 const itDesc = tr.querySelector('.it-desc');
                 const itSku = tr.querySelector('.it-sku');
                 const itQtd = tr.querySelector('.it-qtd');
-                const itCusto = tr.querySelector('.it-custo');
-                const itVenda = tr.querySelector('.it-venda');
+                const itCusto = tr.querySelector('.it-custo');                const itVenda = tr.querySelector('.it-venda');
                 const itNcm = tr.querySelector('.it-ncm');
                 const itCfop = tr.querySelector('.it-cfop');
                 
@@ -782,7 +865,8 @@ app.salvarEntradaEstoque = async function(e) {
             }
 
             if(gerarFinanceiro) {
-                let nP = 1;                 if(fp.includes('Parcelado') || fp.includes('Prazo')) { 
+                let nP = 1; 
+                if(fp.includes('Parcelado') || fp.includes('Prazo')) { 
                     if(parc.includes('2x')) nP = 2; 
                     else if(parc.includes('3x')) nP = 3; 
                     else if(parc.includes('4x')) nP = 4; 
@@ -796,8 +880,7 @@ app.salvarEntradaEstoque = async function(e) {
                     if(nP>1 || stsPgto==='pendente') dV.setDate(dV.getDate() + (i*30)); 
                     
                     let fDoc = { 
-                        tenantId: app.t_id, 
-                        tipo: 'SAIDA', 
+                        tenantId: app.t_id,                         tipo: 'SAIDA', 
                         categoria: 'OUTROS', 
                         desc: nP>1 ? `NF Compra: ${nf} (${fornecedor}) - Parc ${i+1}/${nP}` : `NF Compra: ${nf} (${fornecedor})`, 
                         valor: vP, 
@@ -809,7 +892,7 @@ app.salvarEntradaEstoque = async function(e) {
                         pessoaId: null, 
                         pessoaNome: fornecedor, 
                         origem: "MANUAL", 
-                        data: new Date().toISOString()
+                         new Date().toISOString()
                     };
                     batch.set(app.db.collection('financeiro').doc(), fDoc); 
                 }
@@ -821,7 +904,7 @@ app.salvarEntradaEstoque = async function(e) {
         app.showToast("Estoque Atualizado!", "success"); 
         e.target.reset(); 
         
-        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalNF'));
+        const modalInst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(document.getElementById('modalNF')) : null;
         if(modalInst) modalInst.hide();
         
     } catch(err) {
@@ -831,8 +914,11 @@ app.salvarEntradaEstoque = async function(e) {
 };
 
 app.apagarProduto = async function(id) {
-    if(app.t_role !== 'admin') {        return app.showToast("Apenas Master.", "error");
+    if(app.t_role !== 'admin') {
+        return app.showToast("Apenas Master.", "error");
     }
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
+    
     if(confirm("Excluir?")) { 
         try {
             await app.db.collection('estoque').doc(id).delete(); 
@@ -844,11 +930,11 @@ app.apagarProduto = async function(id) {
         }
     }
 };
-
 // =====================================================================
 // 6. KANBAN OS
 // =====================================================================
 app.iniciarEscutaOS = function() {
+    if(!app.db) return;
     app.db.collection('ordens_servico').where('tenantId', '==', app.t_id).onSnapshot(snap => {
         app.bancoOSCompleto = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
@@ -871,15 +957,17 @@ app.iniciarEscutaOS = function() {
         app.renderizarTabelaArquivo();
         
         if(app.t_role === 'admin' || app.t_role === 'gerente') {
-            if(document.getElementById('tabelaEquipe')) app.renderizarEquipeRH();
+            const tabelaEquipe = document.getElementById('tabelaEquipe');
+            if(tabelaEquipe) app.renderizarEquipeRH();
         }
-    });
+    }, err => console.error("Erro escuta OS:", err));
 };
 
 app.filtrarGlobal = function() { 
     app.renderizarKanban(); 
     app.renderizarTabelaArquivo(); 
 };
+
 app.renderizarKanban = function() {
     const buscaEl = document.getElementById('buscaGeral');
     const t = buscaEl?.value.toLowerCase().trim() || '';
@@ -890,8 +978,7 @@ app.renderizarKanban = function() {
             (os.placa && os.placa.toLowerCase().includes(t)) || 
             (os.cliente && os.cliente.toLowerCase().includes(t)) || 
             (os.veiculo && os.veiculo.toLowerCase().includes(t))
-        );
-    }
+        );    }
 
     const cols = { patio: '', orcamento: '', aprovacao: '', box: '', pronto: '' }; 
     let counts = { patio: 0, orcamento: 0, aprovacao: 0, box: 0, pronto: 0 }; 
@@ -929,17 +1016,18 @@ app.renderizarKanban = function() {
         const cnt = document.getElementById('count_'+id); 
         if(col) col.innerHTML = cols[id]; 
         if(cnt) cnt.innerText = counts[id]; 
-    });};
+    });
+};
 
 app.mudarStatusRapido = async function(id, novoStatus) {
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     if (novoStatus === 'box') return app.iniciarAtribuicaoBox(id);
     
     try {
         const osRef = app.db.collection('ordens_servico').doc(id); 
         const doc = await osRef.get(); 
         let h = doc.data().historico || [];
-        h.push({ data: new Date().toISOString(), usuario: app.user_nome, acao: `Moveu para: ${novoStatus.toUpperCase()}` });
-        await osRef.update({ status: novoStatus, historico: h, ultimaAtualizacao: new Date().toISOString() });
+        h.push({  new Date().toISOString(), usuario: app.user_nome, acao: `Moveu para: ${novoStatus.toUpperCase()}` });        await osRef.update({ status: novoStatus, historico: h, ultimaAtualizacao: new Date().toISOString() });
         if (novoStatus === 'pronto') app.abrirModalNotificacaoWhatsApp(id, 'pronto');
     } catch(err) {
         console.error("Erro status:", err);
@@ -955,16 +1043,17 @@ app.iniciarAtribuicaoBox = function(id) {
     if (listContainer) {
         let html = ''; 
         app.bancoEquipe.filter(f => f.role === 'equipe').forEach((f, idx) => { 
-            html += `<div class="form-check mb-2"><input class="form-check-input border-secondary" type="checkbox" value="${f.nome}" id="mec_chk_${idx}" name="mec_check"><label class="form-check-label text-white" for="mec_chk_${idx}">${f.nome}</label></div>`; 
+            html += `<div class="form-check mb-2"><input class="form-check-input border-secondary" type="checkbox" value="${f.nome||''}" id="mec_chk_${idx}" name="mec_check"><label class="form-check-label text-white" for="mec_chk_${idx}">${f.nome||''}</label></div>`; 
         });
         listContainer.innerHTML = html || '<div class="text-white-50 small">Nenhum mecânico.</div>';
     }
     
     const modal = document.getElementById('modalAtribuicaoBox');
-    if(modal) new bootstrap.Modal(modal).show();
+    if(modal && typeof bootstrap !== 'undefined') new bootstrap.Modal(modal).show();
 };
 
 app.confirmarAtribuicaoBox = async function() {
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     const id = document.getElementById('atrib_os_id')?.value || ''; 
     const box = document.getElementById('atrib_box')?.value || '';
     const checkboxes = document.querySelectorAll('input[name="mec_check"]:checked');
@@ -978,16 +1067,16 @@ app.confirmarAtribuicaoBox = async function() {
     const mecanicosStr = mecanicosArray.join(' + ');
     
     try {
-        const osRef = app.db.collection('ordens_servico').doc(id);         const doc = await osRef.get(); 
+        const osRef = app.db.collection('ordens_servico').doc(id); 
+        const doc = await osRef.get(); 
         let h = doc.data().historico || [];
         h.push({ data: new Date().toISOString(), usuario: app.user_nome, acao: `Aprovado. [${box}] equipe: [${mecanicosStr}]. Status: BOX` });
         await osRef.update({ status: 'box', mecanicoAtribuido: mecanicosStr, boxAtribuido: box, historico: h, ultimaAtualizacao: new Date().toISOString() });
         app.showToast("Para Box!", "success"); 
         
-        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalAtribuicaoBox'));
+        const modalInst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(document.getElementById('modalAtribuicaoBox')) : null;
         if(modalInst) modalInst.hide();
-    } catch(err) {
-        console.error("Erro atribuição:", err);
+    } catch(err) {        console.error("Erro atribuição:", err);
         app.showToast("Erro: " + err.message, "error");
     }
 };
@@ -1008,11 +1097,12 @@ app.abrirModalNotificacaoWhatsApp = function(id, tipo) {
             if(texto) texto.innerText = `Notificar ${os.cliente||''}?`; 
         }
         const modal = document.getElementById('modalNotificaWhatsApp');
-        if(modal) new bootstrap.Modal(modal).show();
+        if(modal && typeof bootstrap !== 'undefined') new bootstrap.Modal(modal).show();
     }
 };
 
 app.dispararWhatsAppAtivo = function() {
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     const id = document.getElementById('whats_os_id')?.value || ''; 
     const tipo = document.getElementById('whats_tipo_msg')?.value || ''; 
     const os = app.bancoOSCompleto.find(x => x.id === id);
@@ -1025,17 +1115,17 @@ app.dispararWhatsAppAtivo = function() {
         window.open(`https://wa.me/55${os.celular.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`, '_blank');
         
         const h = os.historico || []; 
-        h.push({ data: new Date().toISOString(), usuario: app.user_nome, acao: `WhatsApp CONCLUSÃO.` });
-        app.db.collection('ordens_servico').doc(id).update({ historico: h });
-    } else {         app.showToast("Sem celular.", "error"); 
+        h.push({  new Date().toISOString(), usuario: app.user_nome, acao: `WhatsApp CONCLUSÃO.` });
+        app.db.collection('ordens_servico').doc(id).update({ historico: h }).catch(()=>{});
+    } else { 
+        app.showToast("Sem celular.", "error"); 
     }
     
-    const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalNotificaWhatsApp'));
+    const modalInst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(document.getElementById('modalNotificaWhatsApp')) : null;
     if(modalInst) modalInst.hide();
 };
 
-// =====================================================================
-// 7. MODAL OS
+// =====================================================================// 7. MODAL OS
 // =====================================================================
 app.verificarStatusLink = function() {
     const a = document.getElementById('alertaLinkCliente'); 
@@ -1076,6 +1166,7 @@ app.abrirModalOS = function(mode = 'nova', id = '') {
         const el = document.getElementById(i);
         if(el) el.checked = false; 
     });
+
     if (mode === 'edit') {
         const os = app.bancoOSCompleto.find(x => x.id === id);
         if (os) {
@@ -1083,8 +1174,7 @@ app.abrirModalOS = function(mode = 'nova', id = '') {
             const osPlaca = document.getElementById('os_placa');
             const headerPlaca = document.getElementById('header_placa');
             
-            if(osId) osId.value = os.id; 
-            if(osPlaca) osPlaca.value = os.placa || ''; 
+            if(osId) osId.value = os.id;             if(osPlaca) osPlaca.value = os.placa || ''; 
             if(headerPlaca) headerPlaca.innerText = `[${os.placa||''}]`;
             
             ['os_veiculo','os_cliente','os_cliente_cpf','os_celular','os_status','os_relato_cliente','os_diagnostico'].forEach(k => { 
@@ -1125,15 +1215,15 @@ app.abrirModalOS = function(mode = 'nova', id = '') {
                 const btnDel = document.getElementById('btnDeletarOS');
                 if(btnDel) btnDel.classList.remove('d-none');
             }
-        }    } else { 
+        }
+    } else { 
         app.adicionarMaoDeObra(); 
     }
     
     app.verificarStatusLink(); 
     
     const modal = document.getElementById('modalOS');
-    if(modal) new bootstrap.Modal(modal).show();
-};
+    if(modal && typeof bootstrap !== 'undefined') new bootstrap.Modal(modal).show();};
 
 app.adicionarDoEstoque = function() {
     const sel = document.getElementById('selectProdutoEstoque'); 
@@ -1153,7 +1243,7 @@ app.adicionarLinhaPeca = function(desc, ncm, qtd, custo, venda, idEstoque, isMao
     const mo = isMaoObra ? `data-maoobra="true"` : ''; 
     const est = idEstoque ? `data-idestoque="${idEstoque}" readonly` : '';
     
-    tr.innerHTML = `<td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary peca-desc p-2" value="${desc}" ${est} ${mo}></td><td><span class="text-white-50 small d-block">NCM: ${ncm||'-'}</span></td><td><input type="number" class="form-control form-control-sm bg-dark text-white border-secondary peca-qtd p-2" value="${qtd}" min="1" onchange="app.calcularTotalOS()"></td><td class="gestao-only"><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-danger border-secondary peca-custo p-2" value="${custo}" onchange="app.calcularTotalOS()"></td><td><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-success border-secondary peca-venda p-2 fw-bold" value="${venda}" onchange="app.calcularTotalOS()"></td><td><input type="text" class="form-control form-control-sm bg-black text-white border-0 peca-total fw-bold p-2" readonly value="${(qtd*venda).toFixed(2)}"></td><td class="text-center" data-html2canvas-ignore><button type="button" class="btn btn-sm btn-outline-danger border-0 mt-1" onclick="this.closest('tr').remove(); app.calcularTotalOS()"><i class="bi bi-trash"></i></button></td>`;
+    tr.innerHTML = `<td><input type="text" class="form-control form-control-sm bg-dark text-white border-secondary peca-desc p-2" value="${desc||''}" ${est} ${mo}></td><td><span class="text-white-50 small d-block">NCM: ${ncm||'-'}</span></td><td><input type="number" class="form-control form-control-sm bg-dark text-white border-secondary peca-qtd p-2" value="${qtd}" min="1" onchange="app.calcularTotalOS()"></td><td class="gestao-only"><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-danger border-secondary peca-custo p-2" value="${custo}" onchange="app.calcularTotalOS()"></td><td><input type="number" step="0.01" class="form-control form-control-sm bg-dark text-success border-secondary peca-venda p-2 fw-bold" value="${venda}" onchange="app.calcularTotalOS()"></td><td><input type="text" class="form-control form-control-sm bg-black text-white border-0 peca-total fw-bold p-2" readonly value="${(qtd*venda).toFixed(2)}"></td><td class="text-center" data-html2canvas-ignore><button type="button" class="btn btn-sm btn-outline-danger border-0 mt-1" onclick="this.closest('tr').remove(); app.calcularTotalOS()"><i class="bi bi-trash"></i></button></td>`;
     
     const listaPecas = document.getElementById('listaPecasCorpo');
     if(listaPecas) listaPecas.appendChild(tr); 
@@ -1174,18 +1264,19 @@ app.calcularTotalOS = function() {
         const totalEl = tr.querySelector('.peca-total');
         if(totalEl) totalEl.value = (q*v).toFixed(2);
         
-        t += (q*v);         tc += (q*c); 
+        t += (q*v); 
+        tc += (q*c); 
         if(isMaoObra) tMO += (q*v); 
         else tPecas += (q*v);
     });
     
     const totalEl = document.getElementById('os_total_geral');
     if(totalEl) totalEl.innerText = `R$ ${t.toFixed(2).replace('.',',')}`; 
-    
-    return { total: t, custo: tc, maoObra: tMO, pecas: tPecas };
+        return { total: t, custo: tc, maoObra: tMO, pecas: tPecas };
 };
 
 app.salvarOS = async function() {
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     try {
         const id = document.getElementById('os_id')?.value || ''; 
         let pecasArray = []; 
@@ -1196,7 +1287,7 @@ app.salvarOS = async function() {
         const telOS = (document.getElementById('os_celular')?.value || '').trim();
 
         let cId = '';
-        if(clienteOS && !app.bancoCrm.find(c => c.nome.toLowerCase() === clienteOS.toLowerCase())) {
+        if(clienteOS && !app.bancoCrm.find(c => c.nome?.toLowerCase() === clienteOS.toLowerCase())) {
             const d = await app.db.collection('clientes_base').add({ 
                 tenantId: app.t_id, 
                 nome: clienteOS, 
@@ -1206,7 +1297,7 @@ app.salvarOS = async function() {
             }); 
             cId = d.id;
         } else { 
-            const cExist = app.bancoCrm.find(c => c.nome.toLowerCase() === clienteOS.toLowerCase()); 
+            const cExist = app.bancoCrm.find(c => c.nome?.toLowerCase() === clienteOS.toLowerCase()); 
             if(cExist) cId = cExist.id; 
         }
 
@@ -1223,19 +1314,19 @@ app.salvarOS = async function() {
                     isMaoObra: descInput?.dataset.maoobra === "true" 
                 }); 
             }
-        });        
+        });
+        
         const osStatus = document.getElementById('os_status');
         const novoStatus = osStatus?.value || 'patio';
         
         if(novoStatus === 'box' && id) { 
             const oldData = app.bancoOSCompleto.find(o => o.id === id); 
-            if(oldData && oldData.status !== 'box' && !oldData.mecanicoAtribuido) {
-                return app.iniciarAtribuicaoBox(id); 
+            if(oldData && oldData.status !== 'box' && !oldData.mecanicoAtribuido) {                return app.iniciarAtribuicaoBox(id); 
             }
         }
 
         app.historicoOSAtual.push({ 
-            data: new Date().toISOString(), 
+             new Date().toISOString(), 
             usuario: app.user_nome, 
             acao: id ? `Editou O.S. Status: ${novoStatus.toUpperCase()}` : "Abriu Ficha." 
         });
@@ -1272,20 +1363,20 @@ app.salvarOS = async function() {
             fotos: app.fotosOSAtual, 
             historico: app.historicoOSAtual, 
             ultimaAtualizacao: new Date().toISOString() 
-        };        
+        };
+        
         if (novoStatus === 'entregue') {
             return app.showToast("Use Faturar para baixar estoque.", "warning");
         }
         
         if (id) {
-            await app.db.collection('ordens_servico').doc(id).update(payload); 
-        } else {
+            await app.db.collection('ordens_servico').doc(id).update(payload);         } else {
             await app.db.collection('ordens_servico').add(payload); 
         }
         
         app.showToast("Salvo.", "success"); 
         
-        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalOS'));
+        const modalInst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(document.getElementById('modalOS')) : null;
         if(modalInst) modalInst.hide();
         
     } catch(err) {
@@ -1306,7 +1397,7 @@ app.abrirFaturamentoDireto = function(id) {
         }
     }
     const modal = document.getElementById('modalFaturamento');
-    if(modal) new bootstrap.Modal(modal).show();
+    if(modal && typeof bootstrap !== 'undefined') new bootstrap.Modal(modal).show();
 };
 
 app.abrirFaturamentoOS = function() { 
@@ -1318,16 +1409,17 @@ app.abrirFaturamentoOS = function() {
 };
 
 app.processarFaturamentoCompleto = async function() {
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     if(!app.osParaFaturar) return;
     
     const fatMetodo = document.getElementById('fat_metodo');
-    const fatParcelas = document.getElementById('fat_parcelas');    
+    const fatParcelas = document.getElementById('fat_parcelas');
+    
     const fp = fatMetodo?.value || '';
     const parcelasText = fatParcelas?.value || '';
     const totalVenda = app.osParaFaturar.total || 0; 
     const batch = app.db.batch();
-    
-    let nP = 1; 
+        let nP = 1; 
     if(fp.includes('Boleto') || fp.includes('Cartao') || fp.includes('Parcelado') || fp.includes('Crediario')) {
         nP = parseInt(parcelasText) || 1;
     }
@@ -1355,7 +1447,7 @@ app.processarFaturamentoCompleto = async function() {
                 referenciaId: app.osParaFaturar.id,
                 pessoaId: app.osParaFaturar.clienteId || null,
                 pessoaNome: app.osParaFaturar.cliente || null,
-                data: new Date().toISOString()
+                 new Date().toISOString()
             };
             batch.set(app.db.collection('financeiro').doc(), fDocReceita); 
         }
@@ -1371,12 +1463,12 @@ app.processarFaturamentoCompleto = async function() {
                 } 
             }
         }
+
         let comissoesDetalhadas = []; 
         let somaComissaoGlobal = 0;
         
         if (app.osParaFaturar.mecanicoAtribuido) {
-            let mecanicosArray = app.osParaFaturar.mecanicoAtribuido.split('+').map(m => m.trim());
-            let qtdeMec = mecanicosArray.length;
+            let mecanicosArray = app.osParaFaturar.mecanicoAtribuido.split('+').map(m => m.trim());            let qtdeMec = mecanicosArray.length;
             
             mecanicosArray.forEach(nomeMec => {
                 let func = app.bancoEquipe.find(f => f.nome === nomeMec);
@@ -1403,7 +1495,7 @@ app.processarFaturamentoCompleto = async function() {
                             pessoaNome: func.nome, 
                             origem: 'OS', 
                             referenciaId: app.osParaFaturar.id, 
-                            data: new Date().toISOString()
+                             new Date().toISOString()
                         };
                         batch.set(app.db.collection('financeiro').doc(), fDocComissao);
                     }
@@ -1419,21 +1511,21 @@ app.processarFaturamentoCompleto = async function() {
             baixaEstoqueFeita: true, 
             comissaoProcessada: somaComissaoGlobal, 
             comissoesDetalhadas: comissoesDetalhadas, 
-            historico: h,             ultimaAtualizacao: new Date().toISOString() 
+            historico: h, 
+            ultimaAtualizacao: new Date().toISOString() 
         });
         
         await batch.commit(); 
         app.registrarAuditoriaGlobal("Faturamento", `Faturou ${app.osParaFaturar.placa||''}.`);
-        app.showToast("CHECKOUT CONCLUÍDO!", "success");
-        
+        app.showToast("CHECKOUT CONCLUÍDO!", "success");        
         const modalFat = document.getElementById('modalFaturamento');
-        if(modalFat) {
+        if(modalFat && typeof bootstrap !== 'undefined') {
             const inst = bootstrap.Modal.getInstance(modalFat);
             if(inst) inst.hide();
         }
         
         const modOS = document.getElementById('modalOS'); 
-        if(modOS && modOS.classList.contains('show')) {
+        if(modOS && modOS.classList.contains('show') && typeof bootstrap !== 'undefined') {
             const inst = bootstrap.Modal.getInstance(modOS);
             if(inst) inst.hide();
         }
@@ -1444,7 +1536,7 @@ app.processarFaturamentoCompleto = async function() {
 };
 
 // =====================================================================
-// 9. FINANCEIRO
+// 9. FINANCEIRO - FUNÇÕES RESTAURADAS E BLINDADAS
 // =====================================================================
 app.abrirModalFinanceiro = function(mode='nova', tipo='', id='') {
     const formFin = document.getElementById('formFinanceiro');
@@ -1468,13 +1560,13 @@ app.abrirModalFinanceiro = function(mode='nova', tipo='', id='') {
     
     const finTipo = document.getElementById('fin_tipo');
     if(finTipo) finTipo.value = tipo;
-        const finTitulo = document.getElementById('fin_titulo');
+    
+    const finTitulo = document.getElementById('fin_titulo');
     if(finTitulo) {
         finTitulo.innerHTML = tipo === 'receita' ? '<i class="bi bi-plus-circle text-success me-2"></i> Receita' : '<i class="bi bi-dash-circle text-danger me-2"></i> Despesa';
     }
     
-    const finData = document.getElementById('fin_data');
-    if(finData) finData.value = new Date().toISOString().split('T')[0];
+    const finData = document.getElementById('fin_data');    if(finData) finData.value = new Date().toISOString().split('T')[0];
     
     if(mode === 'edit') {
         const f = app.bancoFin.find(x => x.id === id);
@@ -1517,13 +1609,13 @@ app.abrirModalFinanceiro = function(mode='nova', tipo='', id='') {
         if(tipo === 'receita' && finParcelas) finParcelas.value = '1'; 
     }
     
-    const modal = document.getElementById('modalFin');    if(modal) new bootstrap.Modal(modal).show();
+    const modal = document.getElementById('modalFin');
+    if(modal && typeof bootstrap !== 'undefined') new bootstrap.Modal(modal).show();
 };
 
 app.verificarPgtoFinManual = function() {
     const f = document.getElementById('fin_metodo')?.value || ''; 
-    const d = document.getElementById('divParcelas');
-    if(d) { 
+    const d = document.getElementById('divParcelas');    if(d) { 
         if(f.includes('Parcelado') || f.includes('Boleto')) {
             d.style.display = 'block'; 
         } else { 
@@ -1536,6 +1628,8 @@ app.verificarPgtoFinManual = function() {
 
 app.salvarLancamentoFinanceiro = async function(e) {
     e.preventDefault();
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
+    
     try {
         const finId = document.getElementById('fin_id');
         const id = finId ? finId.value : '';
@@ -1566,11 +1660,11 @@ app.salvarLancamentoFinanceiro = async function(e) {
         const tipoPadrao = tipoBruto === 'receita' ? 'ENTRADA' : 'SAIDA';
 
         if(id) {
-            const m = prompt("JUSTIFICATIVA:");             if(!m || m.trim() === '') {
+            const m = prompt("JUSTIFICATIVA:"); 
+            if(!m || m.trim() === '') {
                 return app.showToast("Justificativa obrigatória.", "error");
             }
-            
-            const finStatus = document.getElementById('fin_status');
+                        const finStatus = document.getElementById('fin_status');
             const sts = finStatus ? finStatus.value : 'pendente';
             
             await app.db.collection('financeiro').doc(id).update({ 
@@ -1615,11 +1709,11 @@ app.salvarLancamentoFinanceiro = async function(e) {
                     pessoaNome: pessoaNome, 
                     origem: "MANUAL", 
                     referenciaId: null, 
-                    data: new Date().toISOString()                 };
+                     new Date().toISOString() 
+                };
                 batch.set(app.db.collection('financeiro').doc(), fDoc);
             }
-            
-            if (tipoPadrao === 'SAIDA' && (categoria === 'VALE' || categoria === 'SALARIO') && pessoaId) {
+                        if (tipoPadrao === 'SAIDA' && (categoria === 'VALE' || categoria === 'SALARIO') && pessoaId) {
                 batch.set(app.db.collection('vales_rh').doc(), { 
                     tenantId: app.t_id, 
                     idFuncionario: pessoaId, 
@@ -1636,7 +1730,7 @@ app.salvarLancamentoFinanceiro = async function(e) {
             app.showToast(`Lançado.`, "success");
         }
         
-        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalFin'));
+        const modalInst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(document.getElementById('modalFin')) : null;
         if(modalInst) modalInst.hide(); 
         
         e.target.reset();
@@ -1647,10 +1741,11 @@ app.salvarLancamentoFinanceiro = async function(e) {
 };
 
 app.iniciarEscutaFinanceiro = function() { 
+    if(!app.db) return;
     app.db.collection('financeiro').where('tenantId', '==', app.t_id).onSnapshot(snap => { 
         app.bancoFin = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
         app.filtrarFinanceiro(true); 
-    }); 
+    }, err => console.error("Erro escuta financeiro:", err));
 };
 
 app.filtrarFinanceiro = function(silent = false) { 
@@ -1664,17 +1759,18 @@ app.filtrarFinanceiro = function(silent = false) {
     if(app.filtroFinDataInicio && app.filtroFinDataFim) { 
         const d1 = new Date(app.filtroFinDataInicio); 
         const d2 = new Date(app.filtroFinDataFim); 
-        base = base.filter(f => {             const dV = new Date(f.vencimento); 
+        base = base.filter(f => { 
+            const dV = new Date(f.vencimento); 
             return dV >= d1 && dV <= d2; 
-        }); 
-    }
+        });     }
     app.bancoFinFiltrado = base; 
     app.renderizarFinanceiroGeral(); 
     if(!silent) app.showToast("Filtros aplicados.", "success");
 };
 
 app.renderizarFinanceiroGeral = function() {
-    if(!document.getElementById('tela_financeiro')) return;
+    const telaFin = document.getElementById('tela_financeiro');
+    if(!telaFin) return;
     
     let totRec = 0, totPag = 0; 
     let hPagar = '', hReceber = '';
@@ -1713,9 +1809,9 @@ app.renderizarFinanceiroGeral = function() {
         }
     });
     
-    const dreRec = document.getElementById('dreReceitas');    const dreDesp = document.getElementById('dreDespesas');
-    const dreCom = document.getElementById('dreComissoes');
-    const dreLucro = document.getElementById('dreLucro');
+    const dreRec = document.getElementById('dreReceitas');
+    const dreDesp = document.getElementById('dreDespesas');
+    const dreCom = document.getElementById('dreComissoes');    const dreLucro = document.getElementById('dreLucro');
     
     if(dreRec) dreRec.innerText = `R$ ${totRec.toFixed(2).replace('.',',')}`; 
     if(dreDesp) dreDesp.innerText = `R$ ${totPag.toFixed(2).replace('.',',')}`; 
@@ -1758,12 +1854,20 @@ app.exportarRelatorioFinanceiro = function() {
         doc.save(`DRE_${app.t_nome}.pdf`); 
         app.showToast("PDF Exportado", "success");
     } catch(e) { 
-        app.showToast("Erro PDF.", "error"); 
+        console.error("Erro PDF:", e);
+        app.showToast("Erro PDF: " + e.message, "error"); 
     }
 };
 
-// =====================================================================// 10. EQUIPE E LIXEIRA
 // =====================================================================
+// 10. EQUIPE E LIXEIRA// =====================================================================
+app.popularSelectVinculoRH = function() {
+    const sel = document.getElementById('fin_vinculo_rh');
+    if(!sel) return;
+    sel.innerHTML = '<option value="">Selecione um colaborador...</option>' + 
+                    app.bancoEquipe.map(f => `<option value="${f.id||''}|${f.nome||''}">${f.nome||''} (${f.role === 'gerente'?'Gestão':'Mecânico'})</option>`).join('');
+};
+
 app.renderizarEquipeRH = function() {
     const tbody = document.getElementById('tabelaEquipe'); 
     if(!tbody) return;
@@ -1786,7 +1890,7 @@ app.renderizarEquipeRH = function() {
         app.bancoVales.filter(v => v.idFuncionario === f.id).forEach(v => totalVales += v.valor);
         let saldoReal = totalCom - totalVales;
         
-        return `<tr><td class="fw-bold text-white fs-6"><i class="bi bi-person-circle text-success me-2"></i> ${f.nome||''}</td><td>${nAcesso}</td><td class="text-warning fw-bold">${f.comissao||0}% / ${f.comissao_pecas||0}%</td><td class="text-info fw-bold fs-5">R$ ${saldoReal.toFixed(2).replace('.',',')}</td><td><span class="bg-dark px-2 rounded text-info">${f.usuario||''}</span></td><td class="admin-only text-end"><button class="btn btn-sm btn-outline-warning px-3 me-2" onclick="app.abrirModalValeRH('${f.id}', '${f.nome||''}')"><i class="bi bi-cash-stack"></i> Vale</button><button class="btn btn-sm btn-outline-danger px-3" onclick="app.apagarFuncionario('${f.id}')"><i class="bi bi-slash-circle"></i></button></td></tr>`;
+        return `<tr><td class="fw-bold text-white fs-6"><i class="bi bi-person-circle text-success me-2"></i> ${f.nome||''}</td><td>${nAcesso}</td><td class="text-warning fw-bold">${f.comissao||0}% / ${f.comissao_pecas||0}%</td><td class="text-info fw-bold fs-5">R$ ${saldoReal.toFixed(2).replace('.',',')}</td><td><span class="bg-dark px-2 rounded text-info">${f.usuario||''}</span></td><td class="admin-only text-end"><button class="btn btn-sm btn-outline-warning px-3 me-2" onclick="app.abrirModalValeRH('${f.id||''}', '${(f.nome||'').replace(/'/g, "\\'")}')"><i class="bi bi-cash-stack"></i> Vale</button><button class="btn btn-sm btn-outline-danger px-3" onclick="app.apagarFuncionario('${f.id||''}')"><i class="bi bi-slash-circle"></i></button></td></tr>`;
     }).join('');
 };
 
@@ -1794,24 +1898,26 @@ app.abrirModalEquipe = function() {
     const form = document.getElementById('formEquipe');
     if(form) form.reset(); 
     const modal = document.getElementById('modalEquipe');
-    if(modal) new bootstrap.Modal(modal).show(); 
+    if(modal && typeof bootstrap !== 'undefined') new bootstrap.Modal(modal).show(); 
 };
 
 app.salvarFuncionario = async function(e) { 
-    e.preventDefault(); 
+    e.preventDefault();
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
+    
     try { 
         await app.db.collection('funcionarios').add({ 
             tenantId: app.t_id, 
             nome: document.getElementById('f_nome')?.value || '', 
-            role: document.getElementById('f_cargo')?.value || '', 
-            comissao: parseFloat(document.getElementById('f_comissao_mo')?.value || 0), 
+            role: document.getElementById('f_cargo')?.value || '',             comissao: parseFloat(document.getElementById('f_comissao_mo')?.value || 0), 
             comissao_pecas: parseFloat(document.getElementById('f_comissao_pecas')?.value || 0), 
             usuario: document.getElementById('f_user')?.value || '', 
             senha: document.getElementById('f_pass')?.value || '' 
         }); 
         app.showToast("Criado.", "success"); 
         e.target.reset(); 
-        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalEquipe'));        if(modalInst) modalInst.hide(); 
+        const modalInst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(document.getElementById('modalEquipe')) : null;
+        if(modalInst) modalInst.hide(); 
     } catch(err) { 
         console.error("Erro:", err); 
         app.showToast("Erro: " + err.message, "error"); 
@@ -1819,6 +1925,7 @@ app.salvarFuncionario = async function(e) {
 };
 
 app.apagarFuncionario = async function(id) { 
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     if(confirm("Bloquear?")) { 
         try { 
             await app.db.collection('funcionarios').doc(id).delete(); 
@@ -1843,14 +1950,15 @@ app.abrirModalValeRH = function(idFunc, nomeFunc) {
     if(form) form.reset(); 
     
     const modal = document.getElementById('modalValeRH');
-    if(modal) new bootstrap.Modal(modal).show(); 
+    if(modal && typeof bootstrap !== 'undefined') new bootstrap.Modal(modal).show(); 
 };
 
 app.confirmarValeRH = async function(e) {
-    e.preventDefault(); 
+    e.preventDefault();
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
+    
     try { 
-        const valeIdFunc = document.getElementById('vale_id_func');
-        const idFunc = valeIdFunc ? valeIdFunc.value : '';
+        const valeIdFunc = document.getElementById('vale_id_func');        const idFunc = valeIdFunc ? valeIdFunc.value : '';
         
         const valeNomeFunc = document.getElementById('vale_nome_func');
         const nomeFunc = valeNomeFunc ? valeNomeFunc.value : '';
@@ -1860,7 +1968,8 @@ app.confirmarValeRH = async function(e) {
         
         const valeMotivo = document.getElementById('vale_motivo');
         const motivo = valeMotivo ? valeMotivo.value : '';
-                if (valor <= 0) {
+        
+        if (valor <= 0) {
             return app.showToast("Valor inválido.", "error");
         }
         
@@ -1893,13 +2002,12 @@ app.confirmarValeRH = async function(e) {
             pessoaNome: nomeFunc, 
             origem: 'MANUAL', 
             referenciaId: null, 
-            data: dataH 
+             dataH 
         });
         
         await batch.commit(); 
         app.showToast("Vale lançado.", "success"); 
-        
-        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalValeRH'));
+                const modalInst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(document.getElementById('modalValeRH')) : null;
         if(modalInst) modalInst.hide(); 
     } catch(err) { 
         console.error("Erro:", err); 
@@ -1909,26 +2017,38 @@ app.confirmarValeRH = async function(e) {
 
 app.renderizarTabelaArquivo = function() {
     let entregues = app.bancoOSCompleto.filter(os => os.status === 'entregue').sort((a,b) => new Date(b.ultimaAtualizacao) - new Date(a.ultimaAtualizacao));
-    const corpo = document.getElementById('tabelaArquivoCorpo');    if(corpo) {
-        corpo.innerHTML = entregues.map(os => `<tr><td class="text-white-50 small"><i class="bi bi-calendar-check text-success me-2"></i> ${new Date(os.ultimaAtualizacao).toLocaleDateString('pt-BR')}</td><td><span class="badge bg-dark border px-3 py-2">${os.placa||''}</span></td><td class="text-white fw-bold">${os.veiculo||''}</td><td class="text-white-50">${os.cliente||''}</td><td class="gestao-only text-success fw-bold">R$ ${(os.total||0).toFixed(2)}</td><td class="text-center"><button class="btn btn-outline-info shadow-sm fw-bold px-4" onclick="app.abrirModalOS('edit', '${os.id}')"><i class="bi bi-folder-symlink-fill"></i></button></td></tr>`).join('');
+    const corpo = document.getElementById('tabelaArquivoCorpo');
+    if(corpo) {
+        if(entregues.length === 0) {
+            corpo.innerHTML = '<tr><td colspan="6" class="text-center text-white-50 p-4">Nenhuma O.S. entregue.</td></tr>';
+        } else {
+            corpo.innerHTML = entregues.map(os => `<tr><td class="text-white-50 small"><i class="bi bi-calendar-check text-success me-2"></i> ${new Date(os.ultimaAtualizacao).toLocaleDateString('pt-BR')}</td><td><span class="badge bg-dark border px-3 py-2">${os.placa||''}</span></td><td class="text-white fw-bold">${os.veiculo||''}</td><td class="text-white-50">${os.cliente||''}</td><td class="gestao-only text-success fw-bold">R$ ${(os.total||0).toFixed(2)}</td><td class="text-center"><button class="btn btn-outline-info shadow-sm fw-bold px-4" onclick="app.abrirModalOS('edit', '${os.id}')"><i class="bi bi-folder-symlink-fill"></i></button></td></tr>`).join('');
+        }
     }
 };
 
 app.iniciarEscutaLixeira = function() {
+    if(!app.db) return;
     app.db.collection('lixeira_auditoria').where('tenantId', '==', app.t_id).onSnapshot(snap => {
         app.bancoAuditoria = snap.docs.map(d => d.data()); 
         app.bancoAuditoria.sort((a,b) => new Date(b.apagadoEm) - new Date(a.apagadoEm));
         const tb = document.getElementById('tabelaLixeiraCorpo'); 
         if(tb) {
-            tb.innerHTML = app.bancoAuditoria.map(l => `<tr><td class="text-white-50 small">${new Date(l.apagadoEm).toLocaleString('pt-BR')}</td><td class="text-white fw-bold">${l.placaOriginal||''}</td><td><i class="bi bi-person-badge text-danger"></i> ${l.apagadoPor||''}</td><td class="text-warning">${l.motivo||''}</td></tr>`).join('');
+            if(app.bancoAuditoria.length === 0) {
+                tb.innerHTML = '<tr><td colspan="4" class="text-center text-white-50 p-4">Nenhuma exclusão registrada.</td></tr>';
+            } else {
+                tb.innerHTML = app.bancoAuditoria.map(l => `<tr><td class="text-white-50 small">${new Date(l.apagadoEm).toLocaleString('pt-BR')}</td><td class="text-white fw-bold">${l.placaOriginal||''}</td><td><i class="bi bi-person-badge text-danger"></i> ${l.apagadoPor||''}</td><td class="text-warning">${l.motivo||''}</td></tr>`).join('');
+            }
         }
-    });
+    }, err => console.error("Erro lixeira:", err));
 };
 
 app.apagarOS = async function() {
     if(app.t_role !== 'admin') {
         return app.showToast("Apenas Admin.", "error");
     }
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
+    
     const m = prompt("JUSTIFICATIVA:"); 
     if(!m || m.trim() === '') {
         return app.showToast("Abortado.", "error");
@@ -1936,8 +2056,7 @@ app.apagarOS = async function() {
     const id = document.getElementById('os_id')?.value || ''; 
     const osC = app.bancoOSCompleto.find(x => x.id === id);
     if(osC) { 
-        try { 
-            await app.registrarAuditoriaGlobal(`OS Cancelada: ${osC.placa||''}`, `Motivo: ${m}`); 
+        try {             await app.registrarAuditoriaGlobal(`OS Cancelada: ${osC.placa||''}`, `Motivo: ${m}`); 
             await app.db.collection('ordens_servico').doc(id).delete(); 
             app.showToast("Lixeira.", "success"); 
         } catch(err) { 
@@ -1945,7 +2064,7 @@ app.apagarOS = async function() {
             app.showToast("Erro: " + err.message, "error"); 
         } 
     }
-    const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalOS'));
+    const modalInst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(document.getElementById('modalOS')) : null;
     if(modalInst) modalInst.hide();
 };
 
@@ -1956,9 +2075,10 @@ app.configurarCloudinary = function() {
     if (!app.CLOUDINARY_CLOUD_NAME) return;
     try {
         if (typeof cloudinary === 'undefined') {
-            console.warn("Cloudinary SDK não carregado.");
+            console.warn("⚠️ Cloudinary SDK não carregado. Verifique o script no HTML.");
             return;
-        }        var w = cloudinary.createUploadWidget({ 
+        }
+        var w = cloudinary.createUploadWidget({ 
             cloudName: app.CLOUDINARY_CLOUD_NAME, 
             uploadPreset: app.CLOUDINARY_UPLOAD_PRESET, 
             sources: ['local', 'camera'], 
@@ -1967,7 +2087,7 @@ app.configurarCloudinary = function() {
             if (!err && res && res.event === "success") { 
                 app.fotosOSAtual.push(res.info.secure_url); 
                 app.historicoOSAtual.push({ 
-                    data: new Date().toISOString(), 
+                     new Date().toISOString(), 
                     usuario: app.user_nome, 
                     acao: "Foto." 
                 }); 
@@ -1986,11 +2106,10 @@ app.renderizarGaleria = function() {
     if(!galeria) return;
     galeria.innerHTML = app.fotosOSAtual.map((url, i) => `<div class="position-relative shadow-sm" style="width: 140px; height: 140px;"><img src="${url}" crossorigin="anonymous" class="img-thumbnail bg-dark border-secondary w-100 h-100 object-fit-cover rounded-3"><button type="button" data-html2canvas-ignore class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 p-0 px-2 rounded-circle" onclick="app.removerFoto(${i})"><i class="bi bi-x"></i></button></div>`).join(''); 
 };
-
 app.removerFoto = function(index) { 
     app.fotosOSAtual.splice(index, 1); 
     app.historicoOSAtual.push({ 
-        data: new Date().toISOString(), 
+         new Date().toISOString(), 
         usuario: app.user_nome, 
         acao: "Excluiu Foto." 
     }); 
@@ -2007,7 +2126,8 @@ async function carregarImagemBase64(url) {
     try { 
         const res = await fetch(url); 
         const blob = await res.blob(); 
-        return new Promise(resolve => {             const r = new FileReader(); 
+        return new Promise(resolve => { 
+            const r = new FileReader(); 
             r.onloadend = () => resolve(r.result); 
             r.readAsDataURL(blob); 
         });
@@ -2034,8 +2154,7 @@ app.exportarPDFMenechelli = async function() {
         let y = 15;
         
         doc.setFillColor(30, 41, 59); 
-        doc.rect(0, 0, w, 40, 'F'); 
-        doc.setTextColor(255, 255, 255); 
+        doc.rect(0, 0, w, 40, 'F');         doc.setTextColor(255, 255, 255); 
         doc.setFont("helvetica", "bold"); 
         doc.setFontSize(26); 
         doc.text(app.t_nome.toUpperCase(), w/2, 22, { align: "center" }); 
@@ -2056,7 +2175,8 @@ app.exportarPDFMenechelli = async function() {
         
         doc.setFont("helvetica", "bold"); 
         doc.text(`Tel:`, 130, y+8); 
-        doc.setFont("helvetica", "normal");         
+        doc.setFont("helvetica", "normal"); 
+        
         const osCelular = document.getElementById('os_celular');
         doc.text(osCelular ? osCelular.value : '', 150, y+8); 
         
@@ -2083,8 +2203,7 @@ app.exportarPDFMenechelli = async function() {
         
         const osRelato = document.getElementById('os_relato_cliente');
         const txtQ = doc.splitTextToSize(osRelato ? osRelato.value : '', w - 30); 
-        doc.text(txtQ, 15, y); 
-        y += (txtQ.length * 6) + 10;
+        doc.text(txtQ, 15, y);         y += (txtQ.length * 6) + 10;
         
         doc.setFont("helvetica", "bold"); 
         doc.setFontSize(12); 
@@ -2105,7 +2224,8 @@ app.exportarPDFMenechelli = async function() {
             const pecaQtd = tr.querySelector('.peca-qtd');
             const pecaVenda = tr.querySelector('.peca-venda');
             const pecaTotal = tr.querySelector('.peca-total');
-            tB.push([                pecaDesc ? pecaDesc.value : '', 
+            tB.push([
+                pecaDesc ? pecaDesc.value : '', 
                 pecaQtd ? pecaQtd.value : '', 
                 `R$ ${pecaVenda ? pecaVenda.value : '0'}`, 
                 `R$ ${pecaTotal ? pecaTotal.value : '0'}`
@@ -2132,8 +2252,7 @@ app.exportarPDFMenechelli = async function() {
                     iX = 15; 
                     iY += 53; 
                 } 
-                if (iY + 45 > 280) { 
-                    doc.addPage(); 
+                if (iY + 45 > 280) {                     doc.addPage(); 
                     iY = 20; 
                     iX = 15; 
                 } 
@@ -2154,11 +2273,10 @@ app.exportarPDFMenechelli = async function() {
         } 
     }
 };
-// =====================================================================
-// 12. IA GEMINI - CHAVE NO LOCALSTORAGE
-// =====================================================================
-app.iaTrabalhando = false;
 
+// =====================================================================
+// 12. IA GEMINI - CHAVE NO LOCALSTORAGE (FUNCIONAL)
+// =====================================================================
 app.renderizarConfigGemini = function() {
     const telaJarvis = document.getElementById('tela_jarvis');
     if (!telaJarvis || document.getElementById('configGeminiSection')) return;
@@ -2180,9 +2298,16 @@ app.renderizarConfigGemini = function() {
         <div id="geminiStatus" class="mt-2 small"></div>
     `;
     
+    // Encontra o container correto (ajustado para seu HTML)
     const jarvisInput = document.getElementById('jarvisInput');
-    if (jarvisInput && jarvisInput.closest('.card')) {
-        jarvisInput.closest('.card').insertAdjacentElement('afterend', configSection);
+    if (jarvisInput) {
+        // Tenta encontrar o container pai mais próximo com border-secondary        const container = jarvisInput.closest('[class*="border-secondary"]') || jarvisInput.closest('.col-md-6') || jarvisInput.parentElement;
+        if (container) {
+            container.insertAdjacentElement('afterend', configSection);
+        } else {
+            // Fallback: insere no final da tela Jarvis
+            telaJarvis.appendChild(configSection);
+        }
     }
     app.atualizarStatusGemini();
 };
@@ -2200,10 +2325,11 @@ app.salvarChaveGemini = function() {
     const novaChave = input?.value?.trim() || '';
     
     if (!novaChave) {
-        localStorage.removeItem(`geminiKey_${app.t_id}`);
+        if(app.t_id) localStorage.removeItem(`geminiKey_${app.t_id}`);
         app.minhaGeminiKey = null;
         app.showToast("Chave removida.", "warning");
-    } else {        localStorage.setItem(`geminiKey_${app.t_id}`, novaChave);
+    } else {
+        if(app.t_id) localStorage.setItem(`geminiKey_${app.t_id}`, novaChave);
         app.minhaGeminiKey = novaChave;
         app.showToast("Chave salva com sucesso!", "success");
     }
@@ -2212,28 +2338,42 @@ app.salvarChaveGemini = function() {
 };
 
 app.chamarGemini = async function(promptCompleto) {
+    // Usa a chave do localStorage (cada oficina tem a sua)
     const chaveAtual = app.minhaGeminiKey;
+    
     if (!chaveAtual) {
+        console.error("[IA] Chave não configurada");
         app.showToast("Erro IA: Configure sua chave API nas configurações", "error");
-        return "Erro: Chave API não configurada.";
+        return "Erro: Chave API não configurada. Vá em Central thIAguinho e insira sua chave.";
     }
     
     try {
         const parts = [{ text: promptCompleto }];
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${chaveAtual}`, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
+            method: 'POST',             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify({ contents: [{ parts }] }) 
         });
+        
         const data = await res.json(); 
+        
         if (!res.ok || data.error) {
             const msg = data.error ? data.error.message : "Erro API";
+            console.error("[IA] Erro:", msg);
             app.showToast("Erro IA: " + msg, "error");
             return "Erro: " + msg;
         }
+        
         const respostaTexto = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        return respostaTexto || "Erro: Resposta inválida";
+        if (!respostaTexto) {
+            console.error("[IA] Resposta vazia");
+            app.showToast("Erro IA: Resposta inválida", "error");
+            return "Erro: Resposta inválida";
+        }
+        
+        return respostaTexto;
+        
     } catch(e) { 
+        console.error("[IA] Falha:", e); 
         app.showToast("Erro IA: " + e.message, "error");
         return "Erro: " + e.message; 
     }
@@ -2244,17 +2384,22 @@ app.perguntarJarvis = async function() {
     const inp = document.getElementById('jarvisInput'); 
     const resDiv = document.getElementById('jarvisResposta');
     if (!inp || !inp.value.trim()) return; 
-    if(!app.minhaGeminiKey) return app.showToast("IA não configurada.", "error");
+    
+    if(!app.minhaGeminiKey) {
+        app.showToast("IA não configurada. Vá em Configurações e insira sua chave Gemini.", "error");
+        return;
+    }
 
     app.iaTrabalhando = true; 
     if(resDiv) {
         resDiv.classList.remove('d-none'); 
         resDiv.innerHTML = '<span class="spinner-border text-info spinner-border-sm me-2"></span> Processando...';
     }
+    
     try {
-        const manuaisPuros = app.bancoIA.map(ia => ia.texto).join('\n').substring(0, 4000);        const promptUnificado = `Atue como Consultor Técnico da oficina "${app.t_nome}".\n\nMANUAIS:\n${manuaisPuros}\n\nRegra: Se não souber, diga "Não consta".\n\nPERGUNTA: "${inp.value}"`;
-        const resposta = await app.chamarGemini(promptUnificado);
-        if(resDiv) resDiv.innerHTML = resposta.replace(/\n/g, '<br>'); 
+        const manuaisPuros = app.bancoIA.map(ia => ia.texto).join('\n').substring(0, 4000);
+        const promptUnificado = `Atue como Consultor Técnico da oficina "${app.t_nome}".\n\nMANUAIS:\n${manuaisPuros}\n\nRegra: Se não souber, diga "Não consta".\n\nPERGUNTA: "${inp.value}"`;
+        const resposta = await app.chamarGemini(promptUnificado);        if(resDiv) resDiv.innerHTML = resposta.replace(/\n/g, '<br>'); 
         if(inp) inp.value = '';
     } catch (error) { 
         if(resDiv) resDiv.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Falha: ${error.message}</span>`; 
@@ -2267,10 +2412,15 @@ app.jarvisAnalisarRevisoes = async function() {
     if(app.iaTrabalhando) return app.showToast("Aguarde.", "warning");
     const div = document.getElementById('jarvisCRMInsights'); 
     if(!div) return;
-    if(!app.minhaGeminiKey) return app.showToast("IA não configurada.", "error");
+    
+    if(!app.minhaGeminiKey) {
+        app.showToast("IA não configurada. Configure sua chave primeiro.", "error");
+        return;
+    }
 
     app.iaTrabalhando = true; 
     div.innerHTML = '<span class="spinner-border text-warning spinner-border-sm me-2"></span> Escaneando...';
+    
     try {
         const historicoMorto = app.bancoOSCompleto.filter(o => o.status === 'entregue');
         if(historicoMorto.length === 0) { 
@@ -2278,7 +2428,11 @@ app.jarvisAnalisarRevisoes = async function() {
             app.iaTrabalhando = false; 
             return; 
         }
-        const ctx = { h: historicoMorto.slice(-30).map(o => ({ d: new Date(o.ultimaAtualizacao).toLocaleDateString('pt-BR'), c: o.cliente, p: o.placa })) };
+        const ctx = { h: historicoMorto.slice(-30).map(o => ({ 
+            d: new Date(o.ultimaAtualizacao).toLocaleDateString('pt-BR'), 
+            c: o.cliente, 
+            p: o.placa 
+        })) };
         const promptUnificado = `Atue como Gestor de Remarketing da oficina ${app.t_nome}.\nDADOS:\n${JSON.stringify(ctx)}\n\nTarefa: Indique 3 clientes para revisão. Formato HTML (<ul><li>).`;
         const resposta = await app.chamarGemini(promptUnificado);
         div.innerHTML = resposta;
@@ -2293,18 +2447,20 @@ app.jarvisAnalisarRevisoes = async function() {
 // BASE RAG / CONHECIMENTO IA
 // =====================================================================
 app.iniciarEscutaIA = function() {
-    app.db.collection('conhecimento_ia').where('tenantId', '==', app.t_id).onSnapshot(snap => {
-        app.bancoIA = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if(!app.db) return;
+    app.db.collection('conhecimento_ia').where('tenantId', '==', app.t_id).onSnapshot(snap => {        app.bancoIA = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if(app.renderizarListaIA) app.renderizarListaIA();
-    });
+    }, err => console.error("Erro escuta IA:", err));
 };
 
 app.renderizarListaIA = function() {
     const div = document.getElementById('listaConhecimentosIA'); 
-    if(!div) return;    div.innerHTML = app.bancoIA.length === 0 ? '<p class="text-white-50">RAG vazio.</p>' : app.bancoIA.map(ia => `<div class="d-flex justify-content-between align-items-center bg-dark p-3 mb-2 border border-secondary rounded"><span class="text-white-50 text-truncate" style="max-width: 85%;">${ia.texto||''}</span><button class="btn btn-sm btn-outline-danger border-0" onclick="app.apagarConhecimentoIA('${ia.id}')"><i class="bi bi-trash-fill"></i></button></div>`).join('');
+    if(!div) return;
+    div.innerHTML = app.bancoIA.length === 0 ? '<p class="text-white-50">RAG vazio.</p>' : app.bancoIA.map(ia => `<div class="d-flex justify-content-between align-items-center bg-dark p-3 mb-2 border border-secondary rounded"><span class="text-white-50 text-truncate" style="max-width: 85%;">${ia.texto||''}</span><button class="btn btn-sm btn-outline-danger border-0" onclick="app.apagarConhecimentoIA('${ia.id||''}')"><i class="bi bi-trash-fill"></i></button></div>`).join('');
 };
 
 app.salvarConhecimentoIA = async function(textoAvulso = null) {
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     const iaTexto = document.getElementById('iaConhecimentoTexto');
     const val = textoAvulso || (iaTexto ? iaTexto.value.trim() : '');
     if(!val) return app.showToast("Vazio.", "warning");
@@ -2323,6 +2479,7 @@ app.salvarConhecimentoIA = async function(textoAvulso = null) {
 };
 
 app.apagarConhecimentoIA = async function(id) { 
+    if(!app.db) return app.showToast("Banco não conectado.", "error");
     if(confirm("Apagar?")) { 
         try {
             await app.db.collection('conhecimento_ia').doc(id).delete(); 
@@ -2340,8 +2497,7 @@ app.processarArquivoParaIA = function(event) {
     const r = new FileReader(); 
     r.onload = async function(e) { 
         try {
-            await app.salvarConhecimentoIA(`[ARQUIVO: ${file.name}]\n\n${e.target.result.substring(0, 10000)}`); 
-            app.showToast("Concluído!", "success"); 
+            await app.salvarConhecimentoIA(`[ARQUIVO: ${file.name}]\n\n${e.target.result.substring(0, 10000)}`);             app.showToast("Concluído!", "success"); 
         } catch(err) {
             console.error("[IA] Erro:", err);
             app.showToast("Erro: " + err.message, "error");
@@ -2350,4 +2506,10 @@ app.processarArquivoParaIA = function(event) {
     r.readAsText(file); 
 };
 
-console.log("🚀 app_oficina.js carregado e blindado.");
+// =====================================================================
+// INICIALIZAÇÃO FINAL
+// =====================================================================
+console.log("🚀 app_oficina.js v2.0 carregado - Sistema blindado e funcional");
+
+// Expor app globalmente para debug
+window.app = app;
