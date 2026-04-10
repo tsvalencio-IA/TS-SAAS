@@ -25,6 +25,9 @@ app.user_nome = sessionStorage.getItem('f_nome');
 app.user_comissao_mo = parseFloat(sessionStorage.getItem('f_comissao') || 0); 
 app.user_comissao_pecas = parseFloat(sessionStorage.getItem('f_comissao_pecas') || 0);
 
+// CHAVE GEMINI: Busca do localStorage da oficina (cada um usa a sua)
+app.minhaGeminiKey = localStorage.getItem(`geminiKey_${app.t_id}`) || null;
+
 if (!app.t_id) window.location.replace('index.html');
 
 // Bancos de Dados Locais na Memória
@@ -45,9 +48,9 @@ app.osParaFaturar = null;
 app.filtroFinDataInicio = null;
 app.filtroFinDataFim = null;
 app.bancoFinFiltrado = [];
-
 // =====================================================================
-// MOTOR DE AUDITORIA GLOBAL// =====================================================================
+// MOTOR DE AUDITORIA GLOBAL
+// =====================================================================
 app.registrarAuditoriaGlobal = async function(modulo, acaoRealizada) {
     try {
         await app.db.collection('lixeira_auditoria').add({
@@ -61,9 +64,13 @@ app.registrarAuditoriaGlobal = async function(modulo, acaoRealizada) {
 };
 
 // =====================================================================
-// 2. INICIALIZAÇÃO
+// 2. INICIALIZAÇÃO + RESPONSIVIDADE MOBILE
 // =====================================================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Ajuste de responsividade mobile
+    app.ajustarResponsividade();
+    window.addEventListener('resize', app.ajustarResponsividade);
+    
     const lblEmpresa = document.getElementById('lblEmpresa'); 
     if(lblEmpresa) lblEmpresa.innerText = app.t_nome;
     
@@ -89,14 +96,14 @@ document.addEventListener('DOMContentLoaded', () => {
     app.construirMenuLateral();
     const linkInicio = document.querySelector('.nav-sidebar .nav-link');
     if(linkInicio) app.mostrarTela('tela_jarvis', 'thIAguinho Inteligência Automotiva', linkInicio);
-    
-    app.iniciarEscutaOS();
+        app.iniciarEscutaOS();
     app.iniciarEscutaCrm();
     app.iniciarEscutaMensagens();
     app.iniciarEscutaMensagensInternas();
     app.iniciarEscutaEquipeInternaParaBox(); 
     app.iniciarEscutaIA();
-        if(app.t_role === 'admin' || app.t_role === 'gerente') {
+    
+    if(app.t_role === 'admin' || app.t_role === 'gerente') {
         app.iniciarEscutaEstoque();
         app.iniciarEscutaFinanceiro();
         app.iniciarEscutaValesRH();
@@ -105,6 +112,11 @@ document.addEventListener('DOMContentLoaded', () => {
         app.iniciarEscutaLixeira();
     }
     app.configurarCloudinary();
+
+    // Configuração da chave Gemini na UI (se for admin)
+    if(app.t_role === 'admin') {
+        app.renderizarConfigGemini();
+    }
 
     const selectCategoria = document.getElementById('fin_categoria');
     if (selectCategoria) {
@@ -126,50 +138,119 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-app.iniciarEscutaEquipeInternaParaBox = function() {
-    app.db.collection('funcionarios').where('tenantId', '==', app.t_id).onSnapshot(snap => {
-        app.bancoEquipe = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        app.popularSelectVinculoRH();
-        if(document.getElementById('tabelaEquipe')) app.renderizarEquipeRH();
-    });
-};
-
-app.popularSelectVinculoRH = function() {
-    const sel = document.getElementById('fin_vinculo_rh');
-    if(!sel) return;
-    sel.innerHTML = '<option value="">Selecione um colaborador...</option>' + 
-                    app.bancoEquipe.map(f => `<option value="${f.id}|${f.nome}">${f.nome} (${f.role === 'gerente'?'Gestão':'Mecânico'})</option>`).join('');
-};
-
-app.iniciarEscutaValesRH = function() {
-    app.db.collection('vales_rh').where('tenantId', '==', app.t_id).onSnapshot(snap => {
-        app.bancoVales = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if(document.getElementById('tabelaEquipe')) app.renderizarEquipeRH();
-    });};
-
 // =====================================================================
-// TOASTS
+// RESPONSIVIDADE MOBILE
 // =====================================================================
-app.showToast = function(msg, type='success') {
-    const bg = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-warning text-dark';
-    const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
+app.ajustarResponsividade = function() {
+    const isMobile = window.innerWidth < 768;
+    const sidebar = document.getElementById('sidebar');
     
-    const wrap = document.createElement('div');
-    wrap.innerHTML = `<div class="toast align-items-center text-white ${bg} border-0 show p-3 mt-2 shadow-lg rounded-3" role="alert" aria-live="assertive" aria-atomic="true" style="transition: opacity 0.5s ease;">
-                        <div class="d-flex">
-                            <div class="toast-body fw-bold"><i class="bi ${icon} me-2"></i> ${msg}</div>
-                            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>
-                        </div>
-                      </div>`;
-                      
-    const toastEl = wrap.firstElementChild;
-    const container = document.getElementById('toastContainer');
-    if (container) {
-        container.appendChild(toastEl);
-        setTimeout(() => {
-            toastEl.style.opacity = '0';
-            setTimeout(() => toastEl.remove(), 500);
-        }, 4000);
+    if (isMobile && sidebar) {        sidebar.classList.add('collapsed');
+    }
+    
+    // Ajusta tabelas para scroll horizontal no mobile
+    document.querySelectorAll('.table-responsive').forEach(el => {
+        if (isMobile) {
+            el.style.overflowX = 'auto';
+            el.style.webkitOverflowScrolling = 'touch';
+        }
+    });
+    
+    // Ajusta tamanho de fontes e botões no mobile
+    if (isMobile) {
+        document.body.classList.add('mobile-view');
+    } else {
+        document.body.classList.remove('mobile-view');
+    }
+};
+
+// =====================================================================
+// CONFIGURAÇÃO GEMINI NA UI (PARA O GESTOR DA OFICINA)
+// =====================================================================
+app.renderizarConfigGemini = function() {
+    // Adiciona botão de configuração da IA no menu Jarvis se não existir
+    const telaJarvis = document.getElementById('tela_jarvis');
+    if (!telaJarvis) return;
+    
+    // Verifica se já existe a seção de configuração
+    if (document.getElementById('configGeminiSection')) return;
+    
+    const configSection = document.createElement('div');
+    configSection.id = 'configGeminiSection';
+    configSection.className = 'mt-4 p-4 bg-dark border border-secondary rounded-3';
+    configSection.innerHTML = `
+        <h6 class="text-warning fw-bold mb-3"><i class="bi bi-key-fill me-2"></i>Configurar Inteligência Artificial</h6>
+        <p class="text-white-50 small mb-3">Insira sua chave API do Google Gemini para ativar o Consultor Técnico.</p>
+        <div class="input-group mb-3">
+            <input type="password" class="form-control bg-black text-white border-secondary" id="inputGeminiKey" placeholder="Cole sua chave API aqui (AIza...)" value="${app.minhaGeminiKey ? '••••••••••••' : ''}">
+            <button class="btn btn-outline-info" type="button" onclick="app.salvarChaveGemini()">💾 Salvar</button>
+        </div>
+        <small class="text-white-50 d-block">
+            <i class="bi bi-info-circle me-1"></i>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-info text-decoration-none">Obter chave gratuita aqui</a>
+        </small>
+        <div id="geminiStatus" class="mt-2 small"></div>
+    `;
+    
+    // Insere após o campo de busca do Jarvis
+    const jarvisInput = document.getElementById('jarvisInput');
+    if (jarvisInput && jarvisInput.closest('.card')) {        jarvisInput.closest('.card').insertAdjacentElement('afterend', configSection);
+    }
+    
+    // Atualiza status
+    app.atualizarStatusGemini();
+};
+
+app.atualizarStatusGemini = function() {
+    const statusEl = document.getElementById('geminiStatus');
+    if (!statusEl) return;
+    
+    if (app.minhaGeminiKey) {
+        statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>IA Ativada ✓</span>';
+    } else {
+        statusEl.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Chave não configurada</span>';
+    }
+};
+
+app.salvarChaveGemini = function() {
+    const input = document.getElementById('inputGeminiKey');
+    const novaChave = input?.value?.trim() || '';
+    
+    if (!novaChave) {
+        // Limpar chave
+        localStorage.removeItem(`geminiKey_${app.t_id}`);
+        app.minhaGeminiKey = null;
+        app.showToast("Chave removida.", "warning");
+    } else {
+        // Salvar chave
+        localStorage.setItem(`geminiKey_${app.t_id}`, novaChave);
+        app.minhaGeminiKey = novaChave;
+        app.showToast("Chave salva com sucesso!", "success");
+    }
+    
+    app.atualizarStatusGemini();
+    if (input) input.value = '';
+};
+
+// =====================================================================
+// NAVEGAÇÃO
+// =====================================================================
+app.mostrarTela = function(id, titulo, btn) {
+    document.querySelectorAll('.modulo-tela').forEach(t => t.style.display = 'none');
+    const tela = document.getElementById(id); 
+    if(tela) tela.style.display = 'block';
+    
+    const hTitulo = document.getElementById('tituloPagina'); 
+    if(hTitulo) hTitulo.innerText = titulo;
+    
+    if(btn) {         document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active')); 
+        btn.classList.add('active'); 
+    }
+    
+    // Fecha sidebar no mobile após navegar
+    if (window.innerWidth < 768) {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) sidebar.classList.add('collapsed');
     }
 };
 
@@ -178,6 +259,9 @@ app.sair = function() {
     window.location.href = 'index.html'; 
 };
 
+// =====================================================================
+// MENU LATERAL
+// =====================================================================
 app.construirMenuLateral = function() {
     const menu = document.getElementById('menuLateral'); 
     if (!menu) return;
@@ -194,22 +278,34 @@ app.construirMenuLateral = function() {
         html += `<a class="nav-link" onclick="app.mostrarTela('tela_financeiro', 'DRE e Caixas', this)"><i class="bi bi-bank text-success"></i> Financeiro / DRE</a>`;
         html += `<a class="nav-link" onclick="app.mostrarTela('tela_equipe', 'Gestão de RH e Equipe', this); app.renderizarEquipeRH();"><i class="bi bi-people-fill text-success"></i> Equipe e RH</a>`;
     }
-    if (app.t_role === 'admin') {        html += `<a class="nav-link" onclick="app.mostrarTela('tela_ia', 'Treinamento I.A.', this)"><i class="bi bi-database-fill-up text-warning"></i> Base RAG / Manuais I.A.</a>`;
+    if (app.t_role === 'admin') {
+        html += `<a class="nav-link" onclick="app.mostrarTela('tela_ia', 'Treinamento I.A.', this)"><i class="bi bi-database-fill-up text-warning"></i> Base RAG / Manuais I.A.</a>`;
     }
     menu.innerHTML = html;
 };
 
-app.mostrarTela = function(id, titulo, btn) {
-    document.querySelectorAll('.modulo-tela').forEach(t => t.style.display = 'none');
-    const tela = document.getElementById(id); 
-    if(tela) tela.style.display = 'block';
+// =====================================================================
+// TOASTS
+// =====================================================================
+app.showToast = function(msg, type='success') {
+    const bg = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-warning text-dark';
+    const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
     
-    const hTitulo = document.getElementById('tituloPagina'); 
-    if(hTitulo) hTitulo.innerText = titulo;
-    
-    if(btn) { 
-        document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active')); 
-        btn.classList.add('active'); 
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div class="toast align-items-center text-white ${bg} border-0 show p-3 mt-2 shadow-lg rounded-3" role="alert" aria-live="assertive" aria-atomic="true" style="transition: opacity 0.5s ease; max-width: 90vw;">                        <div class="d-flex">
+                            <div class="toast-body fw-bold"><i class="bi ${icon} me-2"></i> ${msg}</div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>
+                        </div>
+                      </div>`;
+                      
+    const toastEl = wrap.firstElementChild;
+    const container = document.getElementById('toastContainer');
+    if (container) {
+        container.appendChild(toastEl);
+        setTimeout(() => {
+            toastEl.style.opacity = '0';
+            setTimeout(() => toastEl.remove(), 500);
+        }, 4000);
     }
 };
 
@@ -243,9 +339,9 @@ app.validarDocUI = function(input) {
 
 app.iniciarEscutaCrm = function() {
     app.db.collection('clientes_base').where('tenantId', '==', app.t_id).onSnapshot(snap => {
-        app.bancoCrm = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));        const tb = document.getElementById('tabelaCrmCorpo');
-        if(tb) {
-            tb.innerHTML = app.bancoCrm.map(c => `<tr><td><strong class="text-white">${c.nome}</strong></td><td>${c.documento||'-'}</td><td>${c.telefone}</td><td class="text-info">${c.usuario || 'S/Acesso'}</td><td class="gestao-only text-end"><button class="btn btn-sm btn-outline-info me-1 border-0 shadow-sm" onclick="app.abrirModalCRM('edit', '${c.id}')"><i class="bi bi-pencil"></i> Editar</button><button class="btn btn-sm btn-outline-danger border-0 admin-only shadow-sm" onclick="app.apagarCliente('${c.id}')"><i class="bi bi-trash"></i></button></td></tr>`).join('');
+        app.bancoCrm = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const tb = document.getElementById('tabelaCrmCorpo');
+        if(tb) {            tb.innerHTML = app.bancoCrm.map(c => `<tr><td><strong class="text-white">${c.nome}</strong></td><td>${c.documento||'-'}</td><td>${c.telefone}</td><td class="text-info">${c.usuario || 'S/Acesso'}</td><td class="gestao-only text-end"><button class="btn btn-sm btn-outline-info me-1 border-0 shadow-sm" onclick="app.abrirModalCRM('edit', '${c.id}')"><i class="bi bi-pencil"></i> Editar</button><button class="btn btn-sm btn-outline-danger border-0 admin-only shadow-sm" onclick="app.apagarCliente('${c.id}')"><i class="bi bi-trash"></i></button></td></tr>`).join('');
         }
         const list = document.getElementById('listaClientesCRM');
         if(list) list.innerHTML = app.bancoCrm.map(c => `<option value="${c.nome}" data-id="${c.id}">Tel: ${c.telefone}</option>`).join('');
@@ -292,9 +388,9 @@ app.salvarClienteCRM = async function(e) {
     const docElem = document.getElementById('c_doc'); 
     const docValue = docElem ? docElem.value.replace(/\D/g, '') : '';
     const nomeCli = document.getElementById('c_nome') ? document.getElementById('c_nome').value : '';
-        const payload = { 
-        tenantId: app.t_id, 
-        nome: nomeCli, 
+    
+    const payload = { 
+        tenantId: app.t_id,         nome: nomeCli, 
         telefone: document.getElementById('c_tel').value, 
         documento: docValue, 
         email: document.getElementById('c_email').value,
@@ -341,9 +437,9 @@ app.apagarCliente = async function(id) {
             app.registrarAuditoriaGlobal("CRM", `Deletou cliente: ${c ? c.nome : id}`);
         } catch(err) {
             console.error("Erro apagar:", err);
-            app.showToast("Erro: " + err.message, "error");        }
-    }
-};
+            app.showToast("Erro: " + err.message, "error");
+        }
+    }};
 
 app.aoSelecionarClienteOS = function() {
     const nomeDigitado = document.getElementById('os_cliente').value.trim();
@@ -390,9 +486,9 @@ app.enviarWhatsAppAprovacao = function() {
 // =====================================================================
 app.iniciarEscutaMensagens = function() {
     app.db.collection('mensagens').where('tenantId', '==', app.t_id).onSnapshot(snap => {
-        app.bancoMensagens = snap.docs.map(d => ({id: d.id, ...d.data()}));        app.bancoMensagens.sort((a,b) => (a.timestamp?.toMillis()||0) - (b.timestamp?.toMillis()||0));
-        
-        let nL = app.bancoMensagens.filter(m => m.sender === 'cliente' && !m.lidaAdmin).length;
+        app.bancoMensagens = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        app.bancoMensagens.sort((a,b) => (a.timestamp?.toMillis()||0) - (b.timestamp?.toMillis()||0));
+                let nL = app.bancoMensagens.filter(m => m.sender === 'cliente' && !m.lidaAdmin).length;
         const badge = document.getElementById('chatBadgeGlobal');
         if(badge) { 
             if(nL > 0) { 
@@ -439,9 +535,9 @@ app.abrirChatCRM = function(clienteId, nomeCliente) {
     const area = document.getElementById('chatAreaMsgGlobal'); 
     if(!area) return;
     area.innerHTML = '';
-        const mD = app.bancoMensagens.filter(x => x.clienteId === clienteId);
-    if(mD.length === 0) {
-        area.innerHTML = '<div class="text-center text-white-50 mt-5 pt-5"><i class="bi bi-chat-dots display-1 mb-4 opacity-50"></i><p>Inicie o Atendimento.</p></div>';
+    
+    const mD = app.bancoMensagens.filter(x => x.clienteId === clienteId);
+    if(mD.length === 0) {        area.innerHTML = '<div class="text-center text-white-50 mt-5 pt-5"><i class="bi bi-chat-dots display-1 mb-4 opacity-50"></i><p>Inicie o Atendimento.</p></div>';
     } else {
         mD.forEach(x => {
             if(x.sender === 'cliente' && !x.lidaAdmin) { 
@@ -488,9 +584,9 @@ app.enviarMensagemChatGlobal = async function() {
     }
 };
 
-app.enviarAnexoChatGlobal = async function() {    const inp = document.getElementById('chatFileInputGlobal');
-    if(!inp || !inp.files || inp.files.length === 0 || !app.chatActiveClienteId) return;
-    
+app.enviarAnexoChatGlobal = async function() {
+    const inp = document.getElementById('chatFileInputGlobal');
+    if(!inp || !inp.files || inp.files.length === 0 || !app.chatActiveClienteId) return;    
     app.showToast("Upload...", "warning");
     try {
         const fd = new FormData(); 
@@ -537,8 +633,8 @@ app.iniciarEscutaMensagensInternas = function() {
                 area.scrollTop = area.scrollHeight;
             }
         }
-    });};
-
+    });
+};
 app.enviarMensagemInterna = async function() {
     const inp = document.getElementById('inputChatInterno'); 
     if(!inp || !inp.value.trim()) return;
@@ -586,9 +682,9 @@ app.abrirModalNF = function(mode='nova', id='') {
     
     const nfData = document.getElementById('nf_data');
     if(nfData) nfData.value = new Date().toISOString().split('T')[0];
-        if(mode === 'edit') {
-        const p = app.bancoEstoque.find(x => x.id === id);
-        if(p) {
+    
+    if(mode === 'edit') {
+        const p = app.bancoEstoque.find(x => x.id === id);        if(p) {
             const pIdField = document.getElementById('p_id');
             if(pIdField) pIdField.value = p.id;
             
@@ -635,9 +731,9 @@ app.processarXML = function(event) {
             const corpoItens = document.getElementById('corpoItensNF');
             if(corpoItens) corpoItens.innerHTML = '';
             
-            for(let i=0; i<det.length; i++) {                const prod = det[i].getElementsByTagName("prod")[0];
-                if(prod) {
-                    const sku = prod.getElementsByTagName("cProd")[0]?.textContent || '';
+            for(let i=0; i<det.length; i++) {
+                const prod = det[i].getElementsByTagName("prod")[0];
+                if(prod) {                    const sku = prod.getElementsByTagName("cProd")[0]?.textContent || '';
                     const desc = prod.getElementsByTagName("xProd")[0]?.textContent || ''; 
                     const ncm = prod.getElementsByTagName("NCM")[0]?.textContent || ''; 
                     const cfop = prod.getElementsByTagName("CFOP")[0]?.textContent || '';
@@ -684,9 +780,9 @@ app.verificarPgtoCompraNF = function() {
     }
 };
 
-app.salvarEntradaEstoque = async function(e) {    e.preventDefault();
-    const id = document.getElementById('p_id')?.value || ''; 
-    const fornecedor = document.getElementById('nf_fornecedor')?.value || ''; 
+app.salvarEntradaEstoque = async function(e) {
+    e.preventDefault();
+    const id = document.getElementById('p_id')?.value || '';     const fornecedor = document.getElementById('nf_fornecedor')?.value || ''; 
     const nf = document.getElementById('nf_numero')?.value || ''; 
     const dtBase = document.getElementById('nf_data')?.value || ''; 
     const fp = document.getElementById('nf_metodo_pagamento')?.value || ''; 
@@ -733,9 +829,9 @@ app.salvarEntradaEstoque = async function(e) {    e.preventDefault();
                 
                 const desc = itDesc ? itDesc.value.trim() : '';
                 const sku = itSku ? itSku.value.trim() : '';
-                const q = itQtd ? parseFloat(itQtd.value) || 0 : 0;                const c = itCusto ? parseFloat(itCusto.value) || 0 : 0;
-                const v = itVenda ? parseFloat(itVenda.value) || 0 : 0;
-                
+                const q = itQtd ? parseFloat(itQtd.value) || 0 : 0;
+                const c = itCusto ? parseFloat(itCusto.value) || 0 : 0;
+                const v = itVenda ? parseFloat(itVenda.value) || 0 : 0;                
                 if(desc !== '' && q > 0) {
                     totalCustoGlobalNF += (q * c);
                     batch.set(app.db.collection('estoque').doc(), { 
@@ -782,12 +878,12 @@ app.salvarEntradaEstoque = async function(e) {    e.preventDefault();
                         valor: vP, 
                         parcelaAtual: i+1, 
                         totalParcelas: nP, 
-                        metodo: fp,                         vencimento: dV.toISOString().split('T')[0], 
-                        status: stsPgto,
-                        pessoaId: null, 
+                        metodo: fp, 
+                        vencimento: dV.toISOString().split('T')[0], 
+                        status: stsPgto,                        pessoaId: null, 
                         pessoaNome: fornecedor, 
                         origem: "MANUAL", 
-                        data: new Date().toISOString()
+                         new Date().toISOString()
                     };
                     batch.set(app.db.collection('financeiro').doc(), fDoc); 
                 }
@@ -831,9 +927,9 @@ app.iniciarEscutaOS = function() {
     app.db.collection('ordens_servico').where('tenantId', '==', app.t_id).onSnapshot(snap => {
         app.bancoOSCompleto = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        if(app.t_role === 'equipe') {            let minhaCom = 0; 
-            app.bancoOSCompleto.filter(o => o.status === 'entregue' && o.comissoesDetalhadas && Array.isArray(o.comissoesDetalhadas)).forEach(o => {
-                const minhaParte = o.comissoesDetalhadas.find(c => c.nome === app.user_nome);
+        if(app.t_role === 'equipe') {
+            let minhaCom = 0; 
+            app.bancoOSCompleto.filter(o => o.status === 'entregue' && o.comissoesDetalhadas && Array.isArray(o.comissoesDetalhadas)).forEach(o => {                const minhaParte = o.comissoesDetalhadas.find(c => c.nome === app.user_nome);
                 if(minhaParte) minhaCom += minhaParte.valor;
             });
             let meusVales = 0;
@@ -880,9 +976,9 @@ app.renderizarKanban = function() {
         const s = os.status || 'patio'; 
         counts[s]++;
         
-        let cor = s === 'pronto' ? 'border-success' :                   s === 'aprovacao' ? 'border-warning' : 
-                  s === 'box' ? 'border-info' : 
-                  s === 'orcamento' ? 'border-primary' : 'border-secondary';
+        let cor = s === 'pronto' ? 'border-success' : 
+                  s === 'aprovacao' ? 'border-warning' : 
+                  s === 'box' ? 'border-info' :                   s === 'orcamento' ? 'border-primary' : 'border-secondary';
                   
         const idx = ordem.indexOf(s); 
         const nextS = idx < ordem.length-1 ? ordem[idx+1] : null; 
@@ -929,9 +1025,9 @@ app.mudarStatusRapido = async function(id, novoStatus) {
 app.iniciarAtribuicaoBox = function(id) {
     const atribOsId = document.getElementById('atrib_os_id');
     if(atribOsId) atribOsId.value = id; 
-        const listContainer = document.getElementById('atrib_mecanicos_list');
-    if (listContainer) {
-        let html = ''; 
+    
+    const listContainer = document.getElementById('atrib_mecanicos_list');
+    if (listContainer) {        let html = ''; 
         app.bancoEquipe.filter(f => f.role === 'equipe').forEach((f, idx) => { 
             html += `<div class="form-check mb-2"><input class="form-check-input border-secondary" type="checkbox" value="${f.nome}" id="mec_chk_${idx}" name="mec_check"><label class="form-check-label text-white" for="mec_chk_${idx}">${f.nome}</label></div>`; 
         });
@@ -978,9 +1074,9 @@ app.abrirModalNotificacaoWhatsApp = function(id, tipo) {
     if(whatsOsId) whatsOsId.value = id; 
     if(whatsTipoMsg) whatsTipoMsg.value = tipo;
     
-    const os = app.bancoOSCompleto.find(x => x.id === id);    if(os) {
-        if(tipo === 'pronto') { 
-            const titulo = document.getElementById('whatsTituloModal');
+    const os = app.bancoOSCompleto.find(x => x.id === id);
+    if(os) {
+        if(tipo === 'pronto') {             const titulo = document.getElementById('whatsTituloModal');
             const texto = document.getElementById('whatsTextoModal');
             if(titulo) titulo.innerText = 'Veículo Pronto!'; 
             if(texto) texto.innerText = `Notificar ${os.cliente||''}?`; 
@@ -1003,7 +1099,7 @@ app.dispararWhatsAppAtivo = function() {
         window.open(`https://wa.me/55${os.celular.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`, '_blank');
         
         const h = os.historico || []; 
-        h.push({ data: new Date().toISOString(), usuario: app.user_nome, acao: `WhatsApp CONCLUSÃO.` });
+        h.push({  new Date().toISOString(), usuario: app.user_nome, acao: `WhatsApp CONCLUSÃO.` });
         app.db.collection('ordens_servico').doc(id).update({ historico: h });
     } else { 
         app.showToast("Sem celular.", "error"); 
@@ -1027,8 +1123,8 @@ app.verificarStatusLink = function() {
         a.classList.remove('d-none'); 
     } else {
         a.classList.add('d-none'); 
-    }};
-
+    }
+};
 app.abrirModalOS = function(mode = 'nova', id = '') {
     const formOS = document.getElementById('formOS');
     if(formOS) formOS.reset(); 
@@ -1076,9 +1172,9 @@ app.abrirModalOS = function(mode = 'nova', id = '') {
                 }
             });
             
-            ['chk_combustivel','chk_arranhado','chk_bateria','chk_pneus'].forEach(k => {                 const el = document.getElementById(k);
-                if(os[k] && el) el.checked = true; 
-            });
+            ['chk_combustivel','chk_arranhado','chk_bateria','chk_pneus'].forEach(k => { 
+                const el = document.getElementById(k);
+                if(os[k] && el) el.checked = true;             });
             
             if (os.fotos) { 
                 app.fotosOSAtual = os.fotos; 
@@ -1126,8 +1222,8 @@ app.adicionarDoEstoque = function() {
 app.adicionarMaoDeObra = function() { 
     app.adicionarLinhaPeca("Mão de Obra / Serviço", "-", 1, 0, 0, null, true); 
 };
-app.adicionarLinhaPeca = function(desc, ncm, qtd, custo, venda, idEstoque, isMaoObra) {
-    const tr = document.createElement('tr'); 
+
+app.adicionarLinhaPeca = function(desc, ncm, qtd, custo, venda, idEstoque, isMaoObra) {    const tr = document.createElement('tr'); 
     const mo = isMaoObra ? `data-maoobra="true"` : ''; 
     const est = idEstoque ? `data-idestoque="${idEstoque}" readonly` : '';
     
@@ -1174,9 +1270,9 @@ app.salvarOS = async function() {
         const clienteOS = (document.getElementById('os_cliente')?.value || '').trim();
         const telOS = (document.getElementById('os_celular')?.value || '').trim();
 
-        let cId = '';        if(clienteOS && !app.bancoCrm.find(c => c.nome.toLowerCase() === clienteOS.toLowerCase())) {
-            const d = await app.db.collection('clientes_base').add({ 
-                tenantId: app.t_id, 
+        let cId = '';
+        if(clienteOS && !app.bancoCrm.find(c => c.nome.toLowerCase() === clienteOS.toLowerCase())) {
+            const d = await app.db.collection('clientes_base').add({                 tenantId: app.t_id, 
                 nome: clienteOS, 
                 telefone: telOS, 
                 documento: cpfOS, 
@@ -1223,9 +1319,9 @@ app.salvarOS = async function() {
         const osVeiculo = document.getElementById('os_veiculo');
         const osRelato = document.getElementById('os_relato_cliente');
         const osDiagnostico = document.getElementById('os_diagnostico');
-        const chkCombustivel = document.getElementById('chk_combustivel');        const chkArranhado = document.getElementById('chk_arranhado');
-        const chkBateria = document.getElementById('chk_bateria');
-        const chkPneus = document.getElementById('chk_pneus');
+        const chkCombustivel = document.getElementById('chk_combustivel');
+        const chkArranhado = document.getElementById('chk_arranhado');
+        const chkBateria = document.getElementById('chk_bateria');        const chkPneus = document.getElementById('chk_pneus');
         
         const payload = { 
             tenantId: app.t_id, 
@@ -1272,9 +1368,9 @@ app.salvarOS = async function() {
         app.showToast("Erro: " + err.message, "error");
     }
 };
+
 // =====================================================================
-// 8. FATURAMENTO
-// =====================================================================
+// 8. FATURAMENTO// =====================================================================
 app.abrirFaturamentoDireto = function(id) {
     app.osParaFaturar = app.bancoOSCompleto.find(o => o.id === id);
     if(app.osParaFaturar) {
@@ -1321,9 +1417,9 @@ app.processarFaturamentoCompleto = async function() {
             
             let fDocReceita = { 
                 tenantId: app.t_id, 
-                tipo: 'ENTRADA',                categoria: 'OUTROS', 
-                desc: nP>1 ? `O.S: [${app.osParaFaturar.placa}] - Parc ${i+1}/${nP}` : `O.S: [${app.osParaFaturar.placa}] - ${app.osParaFaturar.cliente}`, 
-                valor: vP, 
+                tipo: 'ENTRADA',
+                categoria: 'OUTROS', 
+                desc: nP>1 ? `O.S: [${app.osParaFaturar.placa}] - Parc ${i+1}/${nP}` : `O.S: [${app.osParaFaturar.placa}] - ${app.osParaFaturar.cliente}`,                 valor: vP, 
                 parcelaAtual: i+1, 
                 totalParcelas: nP, 
                 metodo: fp, 
@@ -1370,9 +1466,9 @@ app.processarFaturamentoCompleto = async function() {
                         let fDocComissao = {
                             tenantId: app.t_id, 
                             tipo: 'SAIDA', 
-                            categoria: 'COMISSAO',                             desc: `Comissão O.S: [${app.osParaFaturar.placa}]`,
-                            valor: totalMec, 
-                            parcelaAtual: 1, 
+                            categoria: 'COMISSAO', 
+                            desc: `Comissão O.S: [${app.osParaFaturar.placa}]`,
+                            valor: totalMec,                             parcelaAtual: 1, 
                             totalParcelas: 1, 
                             metodo: 'Dinheiro', 
                             vencimento: dtBase, 
@@ -1390,7 +1486,7 @@ app.processarFaturamentoCompleto = async function() {
         }
         
         let h = app.osParaFaturar.historico || []; 
-        h.push({ data: new Date().toISOString(), usuario: app.user_nome, acao: `FATURAMENTO CONCLUÍDO.` });
+        h.push({  new Date().toISOString(), usuario: app.user_nome, acao: `FATURAMENTO CONCLUÍDO.` });
         
         batch.update(app.db.collection('ordens_servico').doc(app.osParaFaturar.id), { 
             status: 'entregue', 
@@ -1419,8 +1515,8 @@ app.processarFaturamentoCompleto = async function() {
     } catch(err) {
         console.error("Erro faturamento:", err);
         app.showToast("Erro: " + err.message, "error");
-    }};
-
+    }
+};
 // =====================================================================
 // 9. FINANCEIRO
 // =====================================================================
@@ -1468,9 +1564,9 @@ app.abrirModalFinanceiro = function(mode='nova', tipo='', id='') {
             const divStatusEdit = document.getElementById('divStatusEdit');
             const finStatus = document.getElementById('fin_status');
             const divParcelas = document.getElementById('divParcelas');
-                        if(finIdField) finIdField.value = f.id; 
-            if(finDesc) finDesc.value = f.desc || ''; 
-            if(finValor) finValor.value = f.valor || 0; 
+            
+            if(finIdField) finIdField.value = f.id; 
+            if(finDesc) finDesc.value = f.desc || '';             if(finValor) finValor.value = f.valor || 0; 
             if(finDataField) finDataField.value = f.vencimento ? f.vencimento.split('T')[0] : ''; 
             if(finMetodo) finMetodo.value = f.metodo || 'Dinheiro'; 
             
@@ -1517,9 +1613,9 @@ app.salvarLancamentoFinanceiro = async function(e) {
     e.preventDefault();
     try {
         const finId = document.getElementById('fin_id');
-        const id = finId ? finId.value : '';        
-        const finTipo = document.getElementById('fin_tipo');
-        const tipoBruto = finTipo ? finTipo.value : '';
+        const id = finId ? finId.value : '';
+        
+        const finTipo = document.getElementById('fin_tipo');        const tipoBruto = finTipo ? finTipo.value : '';
         
         const finDesc = document.getElementById('fin_desc');
         const desc = finDesc ? finDesc.value : '';
@@ -1566,9 +1662,9 @@ app.salvarLancamentoFinanceiro = async function(e) {
             app.showToast(`Atualizado.`, "success"); 
             app.registrarAuditoriaGlobal("Financeiro", `Editou. Motivo: ${m}`);
         } else {
-            const batch = app.db.batch();             let nP = 1; 
-            if(fp.includes('Boleto') || fp.includes('Cartão') || fp.includes('Parcelado')) {
-                const finParcelas = document.getElementById('fin_parcelas');
+            const batch = app.db.batch(); 
+            let nP = 1; 
+            if(fp.includes('Boleto') || fp.includes('Cartão') || fp.includes('Parcelado')) {                const finParcelas = document.getElementById('fin_parcelas');
                 nP = finParcelas ? parseInt(finParcelas.value) || 1 : 1;
             }
             const vP = valorTotal / nP; 
@@ -1615,9 +1711,9 @@ app.salvarLancamentoFinanceiro = async function(e) {
             app.showToast(`Lançado.`, "success");
         }
         
-        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalFin'));        if(modalInst) modalInst.hide(); 
-        
-        e.target.reset();
+        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalFin'));
+        if(modalInst) modalInst.hide(); 
+                e.target.reset();
     } catch(err) {
         console.error("Erro financeiro:", err);
         app.showToast("Erro: " + err.message, "error");
@@ -1664,9 +1760,9 @@ app.renderizarFinanceiroGeral = function() {
         if(!isR && f.status === 'pago') totPag += f.valor;
         
         const cor = isR ? 'text-success' : 'text-danger';
-        const st = f.status === 'pago' ? '<span class="badge bg-success px-2 py-1"><i class="bi bi-check2-all"></i> Quitado</span>' : '<span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-hourglass-split"></i> Pendente</span>';        const rhBadge = f.pessoaNome ? `<br><span class="badge bg-warning text-dark mt-1"><i class="bi bi-person-badge"></i> ${f.pessoaNome} (${f.categoria||''})</span>` : '';
-        
-        const dataFmt = f.vencimento ? new Date(f.vencimento).toLocaleDateString('pt-BR') : '';
+        const st = f.status === 'pago' ? '<span class="badge bg-success px-2 py-1"><i class="bi bi-check2-all"></i> Quitado</span>' : '<span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-hourglass-split"></i> Pendente</span>';
+        const rhBadge = f.pessoaNome ? `<br><span class="badge bg-warning text-dark mt-1"><i class="bi bi-person-badge"></i> ${f.pessoaNome} (${f.categoria||''})</span>` : '';
+                const dataFmt = f.vencimento ? new Date(f.vencimento).toLocaleDateString('pt-BR') : '';
         
         const html = `<tr><td class="text-white-50 fw-bold"><i class="bi bi-calendar-event me-2"></i> ${dataFmt}</td><td class="text-white fw-bold">${f.desc||''}${rhBadge}</td><td><span class="badge bg-dark border border-secondary px-3 py-1 text-white-50">${f.parcelaAtual||1}/${f.totalParcelas||1}</span></td><td class="text-white-50 small">${f.metodo || 'Dinheiro'}</td><td class="${cor} fw-bold fs-6">R$ ${(f.valor||0).toFixed(2).replace('.',',')}</td><td>${st}</td><td class="gestao-only text-end"><button class="btn btn-sm btn-outline-info shadow-sm me-1" onclick="app.abrirModalFinanceiro('edit', '${f.tipo}', '${f.id}')"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-link text-danger admin-only" onclick="app.db.collection('financeiro').doc('${f.id}').delete()"><i class="bi bi-trash"></i></button></td></tr>`;
         if(isR) hReceber += html; 
@@ -1713,9 +1809,9 @@ app.exportarRelatorioFinanceiro = function() {
         doc.text(app.t_nome.toUpperCase(), 105, y, { align: "center" }); 
         y += 10;
         doc.setFontSize(12); 
-        doc.text(`DRE`, 105, y, { align: "center" });         y += 20;
-        
-        let bR = []; 
+        doc.text(`DRE`, 105, y, { align: "center" }); 
+        y += 20;
+                let bR = []; 
         app.bancoFinFiltrado.filter(x=>x.tipo==='ENTRADA').forEach(x => { 
             bR.push([x.vencimento?.split('-').reverse().join('/') || '', x.desc||'', x.metodo||'', `R$ ${(x.valor||0).toFixed(2)}`, (x.status||'').toUpperCase()]); 
         });
@@ -1762,9 +1858,9 @@ app.renderizarEquipeRH = function() {
         
         let totalVales = 0; 
         app.bancoVales.filter(v => v.idFuncionario === f.id).forEach(v => totalVales += v.valor);
-        let saldoReal = totalCom - totalVales;        
-        return `<tr><td class="fw-bold text-white fs-6"><i class="bi bi-person-circle text-success me-2"></i> ${f.nome||''}</td><td>${nAcesso}</td><td class="text-warning fw-bold">${f.comissao||0}% / ${f.comissao_pecas||0}%</td><td class="text-info fw-bold fs-5">R$ ${saldoReal.toFixed(2).replace('.',',')}</td><td><span class="bg-dark px-2 rounded text-info">${f.usuario||''}</span></td><td class="admin-only text-end"><button class="btn btn-sm btn-outline-warning px-3 me-2" onclick="app.abrirModalValeRH('${f.id}', '${f.nome||''}')"><i class="bi bi-cash-stack"></i> Vale</button><button class="btn btn-sm btn-outline-danger px-3" onclick="app.apagarFuncionario('${f.id}')"><i class="bi bi-slash-circle"></i></button></td></tr>`;
-    }).join('');
+        let saldoReal = totalCom - totalVales;
+        
+        return `<tr><td class="fw-bold text-white fs-6"><i class="bi bi-person-circle text-success me-2"></i> ${f.nome||''}</td><td>${nAcesso}</td><td class="text-warning fw-bold">${f.comissao||0}% / ${f.comissao_pecas||0}%</td><td class="text-info fw-bold fs-5">R$ ${saldoReal.toFixed(2).replace('.',',')}</td><td><span class="bg-dark px-2 rounded text-info">${f.usuario||''}</span></td><td class="admin-only text-end"><button class="btn btn-sm btn-outline-warning px-3 me-2" onclick="app.abrirModalValeRH('${f.id}', '${f.nome||''}')"><i class="bi bi-cash-stack"></i> Vale</button><button class="btn btn-sm btn-outline-danger px-3" onclick="app.apagarFuncionario('${f.id}')"><i class="bi bi-slash-circle"></i></button></td></tr>`;    }).join('');
 };
 
 app.abrirModalEquipe = function() { 
@@ -1811,9 +1907,9 @@ app.apagarFuncionario = async function(id) {
 app.abrirModalValeRH = function(idFunc, nomeFunc) { 
     const valeIdFunc = document.getElementById('vale_id_func');
     const valeNomeFunc = document.getElementById('vale_nome_func');
-    const lblNomeValeFunc = document.getElementById('lblNomeValeFunc');    
-    if(valeIdFunc) valeIdFunc.value = idFunc; 
-    if(valeNomeFunc) valeNomeFunc.value = nomeFunc; 
+    const lblNomeValeFunc = document.getElementById('lblNomeValeFunc');
+    
+    if(valeIdFunc) valeIdFunc.value = idFunc;     if(valeNomeFunc) valeNomeFunc.value = nomeFunc; 
     if(lblNomeValeFunc) lblNomeValeFunc.innerText = nomeFunc; 
     
     const form = document.getElementById('formValeRH');
@@ -1860,9 +1956,9 @@ app.confirmarValeRH = async function(e) {
             tenantId: app.t_id, 
             tipo: 'SAIDA', 
             categoria: 'VALE', 
-            desc: `[VALE] ${nomeFunc} - ${motivo}`,             valor: valor, 
-            parcelaAtual: 1, 
-            totalParcelas: 1, 
+            desc: `[VALE] ${nomeFunc} - ${motivo}`, 
+            valor: valor, 
+            parcelaAtual: 1,             totalParcelas: 1, 
             metodo: 'Dinheiro', 
             vencimento: dataH.split('T')[0], 
             status: 'pago', 
@@ -1909,9 +2005,9 @@ app.apagarOS = async function() {
     }
     const m = prompt("JUSTIFICATIVA:"); 
     if(!m || m.trim() === '') {
-        return app.showToast("Abortado.", "error");    }
-    const id = document.getElementById('os_id')?.value || ''; 
-    const osC = app.bancoOSCompleto.find(x => x.id === id);
+        return app.showToast("Abortado.", "error");
+    }
+    const id = document.getElementById('os_id')?.value || '';     const osC = app.bancoOSCompleto.find(x => x.id === id);
     if(osC) { 
         try { 
             await app.registrarAuditoriaGlobal(`OS Cancelada: ${osC.placa||''}`, `Motivo: ${m}`); 
@@ -1941,7 +2037,7 @@ app.configurarCloudinary = function() {
             if (!err && res && res.event === "success") { 
                 app.fotosOSAtual.push(res.info.secure_url); 
                 app.historicoOSAtual.push({ 
-                    data: new Date().toISOString(), 
+                     new Date().toISOString(), 
                     usuario: app.user_nome, 
                     acao: "Foto." 
                 }); 
@@ -1958,12 +2054,12 @@ app.configurarCloudinary = function() {
 app.renderizarGaleria = function() { 
     const galeria = document.getElementById('galeriaFotosOS');
     if(!galeria) return;
-    galeria.innerHTML = app.fotosOSAtual.map((url, i) => `<div class="position-relative shadow-sm" style="width: 140px; height: 140px;"><img src="${url}" crossorigin="anonymous" class="img-thumbnail bg-dark border-secondary w-100 h-100 object-fit-cover rounded-3"><button type="button" data-html2canvas-ignore class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 p-0 px-2 rounded-circle" onclick="app.removerFoto(${i})"><i class="bi bi-x"></i></button></div>`).join(''); };
-
+    galeria.innerHTML = app.fotosOSAtual.map((url, i) => `<div class="position-relative shadow-sm" style="width: 140px; height: 140px;"><img src="${url}" crossorigin="anonymous" class="img-thumbnail bg-dark border-secondary w-100 h-100 object-fit-cover rounded-3"><button type="button" data-html2canvas-ignore class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 p-0 px-2 rounded-circle" onclick="app.removerFoto(${i})"><i class="bi bi-x"></i></button></div>`).join(''); 
+};
 app.removerFoto = function(index) { 
     app.fotosOSAtual.splice(index, 1); 
     app.historicoOSAtual.push({ 
-        data: new Date().toISOString(), 
+         new Date().toISOString(), 
         usuario: app.user_nome, 
         acao: "Excluiu Foto." 
     }); 
@@ -2007,9 +2103,9 @@ app.exportarPDFMenechelli = async function() {
         let y = 15;
         
         doc.setFillColor(30, 41, 59); 
-        doc.rect(0, 0, w, 40, 'F');         doc.setTextColor(255, 255, 255); 
-        doc.setFont("helvetica", "bold"); 
-        doc.setFontSize(26); 
+        doc.rect(0, 0, w, 40, 'F'); 
+        doc.setTextColor(255, 255, 255); 
+        doc.setFont("helvetica", "bold");         doc.setFontSize(26); 
         doc.text(app.t_nome.toUpperCase(), w/2, 22, { align: "center" }); 
         doc.setFontSize(10); 
         doc.setFont("helvetica", "normal"); 
@@ -2056,9 +2152,9 @@ app.exportarPDFMenechelli = async function() {
         
         const osRelato = document.getElementById('os_relato_cliente');
         const txtQ = doc.splitTextToSize(osRelato ? osRelato.value : '', w - 30); 
-        doc.text(txtQ, 15, y);         y += (txtQ.length * 6) + 10;
-        
-        doc.setFont("helvetica", "bold"); 
+        doc.text(txtQ, 15, y); 
+        y += (txtQ.length * 6) + 10;
+                doc.setFont("helvetica", "bold"); 
         doc.setFontSize(12); 
         doc.text(`DIAGNÓSTICO`, 15, y); 
         doc.line(15, y+2, w-15, y+2); 
@@ -2105,9 +2201,9 @@ app.exportarPDFMenechelli = async function() {
                     iX = 15; 
                     iY += 53; 
                 } 
-                if (iY + 45 > 280) {                     doc.addPage(); 
-                    iY = 20; 
-                    iX = 15; 
+                if (iY + 45 > 280) { 
+                    doc.addPage(); 
+                    iY = 20;                     iX = 15; 
                 } 
                 doc.addImage(b64, 'JPEG', iX, iY, 45, 45); 
                 iX += 53; 
@@ -2128,40 +2224,122 @@ app.exportarPDFMenechelli = async function() {
 };
 
 // =====================================================================
-// 12. IA GEMINI - VERSÃO CORRIGIDA E SEGURA
+// 12. IA GEMINI - CHAVE NO LOCALSTORAGE DA OFICINA
 // =====================================================================
-app.minhaGeminiKey = null;
 app.iaTrabalhando = false;
 
-app.carregarGeminiKey = async function() {
-    if (!app.t_id) return null;
-    try {
-        const doc = await app.db.collection('oficinas').doc(app.t_id).get();
-        if (doc.exists) {
-            const data = doc.data();
-            app.minhaGeminiKey = data.geminiKey || data.gemini || data.apiGemini || data.api_gemini || data.apiKeyGemini || null;
-            if (app.minhaGeminiKey) {
-                console.log("[IA] Chave carregada com sucesso");
-            } else {
-                console.warn("[IA] Chave não encontrada no Firestore");
-            }
-            return app.minhaGeminiKey;
-        }
-    } catch (e) { 
-        console.error("[IA] Erro ao buscar chave:", e); 
+// Chamar Gemini usando a chave do localStorage da oficina
+app.chamarGemini = async function(promptCompleto) {
+    // Usa a chave do localStorage (cada oficina tem a sua)
+    const chaveAtual = app.minhaGeminiKey;
+    
+    if (!chaveAtual) {
+        console.error("[IA] Chave não configurada no localStorage");
+        app.showToast("Erro IA: Configure sua chave API nas configurações", "error");
+        return "Erro: Chave API não configurada. Vá em Central thIAguinho e insira sua chave.";
     }
-    return null;
+    
+    try {
+        const parts = [{ text: promptCompleto }];
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${chaveAtual}`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ contents: [{ parts }] }) 
+        });
+        
+        const data = await res.json(); 
+        
+        if (!res.ok || data.error) {
+            const msg = data.error ? data.error.message : "Erro API";
+            console.error("[IA] Erro:", msg);
+            app.showToast("Erro IA: " + msg, "error");            return "Erro: " + msg;
+        }
+        
+        const respostaTexto = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!respostaTexto) {
+            console.error("[IA] Resposta vazia");
+            app.showToast("Erro IA: Resposta inválida", "error");
+            return "Erro: Resposta inválida";
+        }
+        
+        return respostaTexto;
+        
+    } catch(e) { 
+        console.error("[IA] Falha:", e); 
+        app.showToast("Erro IA: " + e.message, "error");
+        return "Erro: " + e.message; 
+    }
 };
 
-app.iniciarEscutaIA = function() {
-    if(app.t_id) {        app.db.collection('oficinas').doc(app.t_id).onSnapshot(doc => { 
-            if(doc.exists) {
-                const data = doc.data();
-                app.minhaGeminiKey = data.geminiKey || data.gemini || data.apiGemini || data.api_gemini || data.apiKeyGemini || null;
-                if(app.minhaGeminiKey) console.log("[IA] Chave atualizada via listener");
-            }
-        });
+app.perguntarJarvis = async function() {
+    if (app.iaTrabalhando) return;
+    const inp = document.getElementById('jarvisInput'); 
+    const resDiv = document.getElementById('jarvisResposta');
+    if (!inp || !inp.value.trim()) return; 
+    
+    // Verifica se tem chave configurada
+    if(!app.minhaGeminiKey) {
+        app.showToast("IA não configurada. Vá em Configurações e insira sua chave Gemini.", "error");
+        return;
     }
+
+    app.iaTrabalhando = true; 
+    if(resDiv) {
+        resDiv.classList.remove('d-none'); 
+        resDiv.innerHTML = '<span class="spinner-border text-info spinner-border-sm me-2"></span> Processando...';
+    }
+    
+    try {
+        const manuaisPuros = app.bancoIA.map(ia => ia.texto).join('\n').substring(0, 4000);
+        const promptUnificado = `Atue como Consultor Técnico da oficina "${app.t_nome}".\n\nMANUAIS:\n${manuaisPuros}\n\nRegra: Se não souber, diga "Não consta".\n\nPERGUNTA: "${inp.value}"`;
+        const resposta = await app.chamarGemini(promptUnificado);
+        if(resDiv) resDiv.innerHTML = resposta.replace(/\n/g, '<br>'); 
+        if(inp) inp.value = '';
+    } catch (error) { 
+        if(resDiv) resDiv.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Falha: ${error.message}</span>`; 
+    } finally { 
+        app.iaTrabalhando = false; 
+    }
+};
+app.jarvisAnalisarRevisoes = async function() {
+    if(app.iaTrabalhando) return app.showToast("Aguarde.", "warning");
+    const div = document.getElementById('jarvisCRMInsights'); 
+    if(!div) return;
+    
+    if(!app.minhaGeminiKey) {
+        app.showToast("IA não configurada. Configure sua chave primeiro.", "error");
+        return;
+    }
+
+    app.iaTrabalhando = true; 
+    div.innerHTML = '<span class="spinner-border text-warning spinner-border-sm me-2"></span> Escaneando...';
+    
+    try {
+        const historicoMorto = app.bancoOSCompleto.filter(o => o.status === 'entregue');
+        if(historicoMorto.length === 0) { 
+            div.innerHTML = '<span class="text-white-50">Sem registros.</span>'; 
+            app.iaTrabalhando = false; 
+            return; 
+        }
+        const ctx = { h: historicoMorto.slice(-30).map(o => ({ 
+            d: new Date(o.ultimaAtualizacao).toLocaleDateString('pt-BR'), 
+            c: o.cliente, 
+            p: o.placa 
+        })) };
+        const promptUnificado = `Atue como Gestor de Remarketing da oficina ${app.t_nome}.\nDADOS:\n${JSON.stringify(ctx)}\n\nTarefa: Indique 3 clientes para revisão. Formato HTML (<ul><li>).`;
+        const resposta = await app.chamarGemini(promptUnificado);
+        div.innerHTML = resposta;
+    } catch (error) { 
+        div.innerHTML = `<span class="text-danger">Erro: ${error.message}</span>`; 
+    } finally { 
+        app.iaTrabalhando = false; 
+    }
+};
+
+// =====================================================================
+// BASE RAG / CONHECIMENTO IA
+// =====================================================================
+app.iniciarEscutaIA = function() {
     app.db.collection('conhecimento_ia').where('tenantId', '==', app.t_id).onSnapshot(snap => {
         app.bancoIA = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if(app.renderizarListaIA) app.renderizarListaIA();
@@ -2173,7 +2351,6 @@ app.renderizarListaIA = function() {
     if(!div) return;
     div.innerHTML = app.bancoIA.length === 0 ? '<p class="text-white-50">RAG vazio.</p>' : app.bancoIA.map(ia => `<div class="d-flex justify-content-between align-items-center bg-dark p-3 mb-2 border border-secondary rounded"><span class="text-white-50 text-truncate" style="max-width: 85%;">${ia.texto||''}</span><button class="btn btn-sm btn-outline-danger border-0" onclick="app.apagarConhecimentoIA('${ia.id}')"><i class="bi bi-trash-fill"></i></button></div>`).join('');
 };
-
 app.salvarConhecimentoIA = async function(textoAvulso = null) {
     const iaTexto = document.getElementById('iaConhecimentoTexto');
     const val = textoAvulso || (iaTexto ? iaTexto.value.trim() : '');
@@ -2203,6 +2380,7 @@ app.apagarConhecimentoIA = async function(id) {
         }
     } 
 };
+
 app.processarArquivoParaIA = function(event) { 
     const file = event.target.files[0]; 
     if(!file) return; 
@@ -2217,109 +2395,6 @@ app.processarArquivoParaIA = function(event) {
         }
     }; 
     r.readAsText(file); 
-};
-
-app.chamarGemini = async function(promptCompleto) {
-    if (!app.minhaGeminiKey) {
-        console.log("[IA] Buscando chave...");
-        await app.carregarGeminiKey();
-        if (!app.minhaGeminiKey) { 
-            console.error("[IA] Chave não encontrada"); 
-            app.showToast("Erro IA: Chave API não configurada", "error");
-            return "Erro: Chave API não configurada"; 
-        }
-    }
-    
-    try {
-        const parts = [{ text: promptCompleto }];
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${app.minhaGeminiKey}`, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ contents: [{ parts }] }) 
-        });
-        
-        const data = await res.json(); 
-        
-        if (!res.ok || data.error) {
-            const msg = data.error ? data.error.message : "Erro API";
-            console.error("[IA] Erro:", msg);
-            app.showToast("Erro IA: " + msg, "error");
-            return "Erro: " + msg;
-        }
-        
-        const respostaTexto = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!respostaTexto) {
-            console.error("[IA] Resposta vazia");
-            app.showToast("Erro IA: Resposta inválida", "error");
-            return "Erro: Resposta inválida";
-        }        
-        return respostaTexto;
-        
-    } catch(e) { 
-        console.error("[IA] Falha:", e); 
-        app.showToast("Erro IA: " + e.message, "error");
-        return "Erro: " + e.message; 
-    }
-};
-
-app.perguntarJarvis = async function() {
-    if (app.iaTrabalhando) return;
-    const inp = document.getElementById('jarvisInput'); 
-    const resDiv = document.getElementById('jarvisResposta');
-    if (!inp || !inp.value.trim()) return; 
-    
-    if(!app.minhaGeminiKey) await app.carregarGeminiKey();
-    if(!app.minhaGeminiKey) return app.showToast("IA não configurada.", "error");
-
-    app.iaTrabalhando = true; 
-    if(resDiv) {
-        resDiv.classList.remove('d-none'); 
-        resDiv.innerHTML = '<span class="spinner-border text-info spinner-border-sm me-2"></span> Processando...';
-    }
-    
-    try {
-        const manuaisPuros = app.bancoIA.map(ia => ia.texto).join('\n').substring(0, 4000);
-        const promptUnificado = `Atue como Consultor Técnico da oficina "${app.t_nome}".\n\nMANUAIS:\n${manuaisPuros}\n\nRegra: Se não souber, diga "Não consta".\n\nPERGUNTA: "${inp.value}"`;
-        const resposta = await app.chamarGemini(promptUnificado);
-        if(resDiv) resDiv.innerHTML = resposta.replace(/\n/g, '<br>'); 
-        if(inp) inp.value = '';
-    } catch (error) { 
-        if(resDiv) resDiv.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Falha: ${error.message}</span>`; 
-    } finally { 
-        app.iaTrabalhando = false; 
-    }
-};
-
-app.jarvisAnalisarRevisoes = async function() {
-    if(app.iaTrabalhando) return app.showToast("Aguarde.", "warning");
-    const div = document.getElementById('jarvisCRMInsights'); 
-    if(!div) return;
-    
-    if(!app.minhaGeminiKey) await app.carregarGeminiKey();
-    if(!app.minhaGeminiKey) return app.showToast("IA não configurada.", "error");
-
-    app.iaTrabalhando = true; 
-    div.innerHTML = '<span class="spinner-border text-warning spinner-border-sm me-2"></span> Escaneando...';
-    
-    try {        const historicoMorto = app.bancoOSCompleto.filter(o => o.status === 'entregue');
-        if(historicoMorto.length === 0) { 
-            div.innerHTML = '<span class="text-white-50">Sem registros.</span>'; 
-            app.iaTrabalhando = false; 
-            return; 
-        }
-        const ctx = { h: historicoMorto.slice(-30).map(o => ({ 
-            d: new Date(o.ultimaAtualizacao).toLocaleDateString('pt-BR'), 
-            c: o.cliente, 
-            p: o.placa 
-        })) };
-        const promptUnificado = `Atue como Gestor de Remarketing da oficina ${app.t_nome}.\nDADOS:\n${JSON.stringify(ctx)}\n\nTarefa: Indique 3 clientes para revisão. Formato HTML (<ul><li>).`;
-        const resposta = await app.chamarGemini(promptUnificado);
-        div.innerHTML = resposta;
-    } catch (error) { 
-        div.innerHTML = `<span class="text-danger">Erro: ${error.message}</span>`; 
-    } finally { 
-        app.iaTrabalhando = false; 
-    }
 };
 
 console.log("🚀 app_oficina.js carregado com sucesso!");
