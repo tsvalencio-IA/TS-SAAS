@@ -1,11 +1,11 @@
 // =====================================================================
 // APP SUPER ADMIN - thIAguinho.Digital SaaS
-// Versão compatível com dark mode e edição de clientes
+// Versão completa e corrigida
 // =====================================================================
 
 window.app = window.app || {};
 
-// Configuração Firebase (MESMA do painel_oficina)
+// Configuração Firebase
 app.firebaseConfig = {
     apiKey: "AIzaSyBqIuCsHHuy_f-mBWV4JBkbyOorXpqQvqg",
     authDomain: "hub-thiaguinho.firebaseapp.com",
@@ -27,13 +27,11 @@ app.db = firebase.firestore();
 document.addEventListener('DOMContentLoaded', () => {
     console.log("✅ Super Admin carregado!");
     
-    // Verifica sessão
     const role = sessionStorage.getItem('t_role');
     if (role !== 'superadmin') {
-        console.warn("⚠️ Usuário não é superadmin, mas permitindo acesso para debug");
+        console.warn("⚠️ Usuário não é superadmin");
     }
     
-    // Carrega dados
     app.carregarDashboardStats();
     app.carregarListaClientes();
     app.carregarFinanceiroMaster();
@@ -46,16 +44,12 @@ document.addEventListener('DOMContentLoaded', () => {
 app.mostrarSecao = function(id) {
     console.log("🔄 Navegando para:", id);
     
-    // Esconde todas
     document.querySelectorAll('.secao').forEach(el => {
         if (el) el.style.display = 'none';
     });
-    
-    // Mostra alvo
-    const alvo = document.getElementById('secao-' + id);
+        const alvo = document.getElementById('secao-' + id);
     if (alvo) alvo.style.display = 'block';
     
-    // Atualiza menu
     document.querySelectorAll('.nav-link').forEach(el => {
         el.classList.remove('active');
     });
@@ -71,7 +65,7 @@ app.sair = function() {
 };
 
 // =====================================================================
-// DASHBOARD - CONTADORES
+// DASHBOARD
 // =====================================================================
 app.carregarDashboardStats = function() {
     console.log("📊 Carregando stats...");
@@ -89,7 +83,6 @@ app.carregarDashboardStats = function() {
             }
         });
         
-        // Atualiza DOM com verificação de existência
         const elAtivos = document.getElementById('lblAtivos');
         const elSuspensos = document.getElementById('lblSuspensos');
         const elTotal = document.getElementById('lblTotalAmbientes');
@@ -100,12 +93,10 @@ app.carregarDashboardStats = function() {
         
         console.log(`📈 Stats: ${ativos} ativos, ${suspensos} suspensos, ${snap.size} total`);
         
-        // Atualiza select do onboarding
         app.atualizarSelectOnboarding(snap);
     }, error => {
         console.error("❌ Erro ao carregar stats:", error);
-    });
-};
+    });};
 
 app.atualizarSelectOnboarding = function(snap) {
     const sel = document.getElementById('selectEmpresaOnboarding');
@@ -122,7 +113,7 @@ app.atualizarSelectOnboarding = function(snap) {
 };
 
 // =====================================================================
-// LISTA DE CLIENTES - COM EDIÇÃO E EXCLUSÃO
+// LISTA DE CLIENTES
 // =====================================================================
 app.carregarListaClientes = function() {
     console.log("👥 Carregando lista de clientes...");
@@ -154,8 +145,7 @@ app.carregarListaClientes = function() {
                 <tr>
                     <td class="text-muted small font-monospace">${doc.id.substring(0, 8)}...</td>
                     <td class="fw-bold">${d.nome || 'Sem nome'}</td>
-                    <td><span class="badge bg-info text-dark">${d.nicho || 'N/A'}</span></td>
-                    <td>${d.usuarioAdmin || '-'}</td>
+                    <td><span class="badge bg-info text-dark">${d.nicho || 'N/A'}</span></td>                    <td>${d.usuarioAdmin || '-'}</td>
                     <td><span class="badge ${statusClass}">${statusText}</span></td>
                     <td>
                         <button class="btn btn-sm btn-outline-info me-1" onclick="app.editarCliente('${doc.id}')" title="Editar">
@@ -191,7 +181,6 @@ app.editarCliente = async function(id) {
         
         const d = doc.data();
         
-        // Preenche formulário
         document.getElementById('nomeEmpresa').value = d.nome || '';
         document.getElementById('whatsappFaturamento').value = d.whatsapp || '';
         document.getElementById('nichoOperacional').value = d.nicho || '';
@@ -202,25 +191,20 @@ app.editarCliente = async function(id) {
         document.getElementById('cloudinaryName').value = d.configuracoes?.cloudinaryName || 'dmuvm1o6m';
         document.getElementById('cloudinaryPreset').value = d.configuracoes?.cloudinaryPreset || 'evolution';
         
-        // Módulos
         if (d.modulos) {
             document.getElementById('moduloFinanceiro').checked = !!d.modulos.financeiro;
             document.getElementById('moduloCRM').checked = !!d.modulos.crm;
-            document.getElementById('moduloEstoqueVendas').checked = !!d.modulos.estoqueVendas;
-            document.getElementById('moduloEstoqueInterno').checked = !!d.modulos.estoqueInterno;
+            document.getElementById('moduloEstoqueVendas').checked = !!d.modulos.estoqueVendas;            document.getElementById('moduloEstoqueInterno').checked = !!d.modulos.estoqueInterno;
             document.getElementById('moduloKanban').checked = !!d.modulos.kanban;
             document.getElementById('moduloPDF').checked = !!d.modulos.pdf;
             document.getElementById('moduloChat').checked = !!d.modulos.chat;
             document.getElementById('moduloIA').checked = !!d.modulos.ia;
         }
         
-        // Armazena ID para edição
         sessionStorage.setItem('editandoClienteId', id);
         
-        // Vai para tela de criação
         app.mostrarSecao('criar');
         
-        // Muda botão
         const btn = document.getElementById('btnImplantar');
         if (btn) {
             btn.innerText = '💾 SALVAR ALTERAÇÕES';
@@ -236,7 +220,7 @@ app.editarCliente = async function(id) {
 };
 
 // =====================================================================
-// EXCLUIR CLIENTE (COM CONFIRMAÇÃO DUPLA)
+// EXCLUIR CLIENTE
 // =====================================================================
 app.excluirCliente = async function(id, nome) {
     console.log("🗑️ Excluindo cliente:", id, nome);
@@ -260,7 +244,6 @@ app.excluirCliente = async function(id, nome) {
         alert('Erro ao excluir: ' + error.message);
     }
 };
-
 // =====================================================================
 // FINANCEIRO MASTER
 // =====================================================================
@@ -309,8 +292,7 @@ app.carregarFinanceiroMaster = function() {
                 });
             }
             
-            if (lblRec) lblRec.innerText = 'R$ ' + totalRec.toFixed(2).replace('.', ',');
-            if (lblDesp) lblDesp.innerText = 'R$ ' + totalDesp.toFixed(2).replace('.', ',');
+            if (lblRec) lblRec.innerText = 'R$ ' + totalRec.toFixed(2).replace('.', ',');            if (lblDesp) lblDesp.innerText = 'R$ ' + totalDesp.toFixed(2).replace('.', ',');
             if (lblLucro) lblLucro.innerText = 'R$ ' + (totalRec - totalDesp).toFixed(2).replace('.', ',');
             
         }, error => {
@@ -334,19 +316,16 @@ app.deletarLancamento = async function(id) {
 app.configurarListeners = function() {
     console.log("🔗 Configurando listeners...");
     
-    // Botão Implantar/Editar
     const btnImplantar = document.getElementById('btnImplantar');
     if (btnImplantar) {
         btnImplantar.addEventListener('click', app.salvarCliente);
     }
     
-    // Botão Financeiro
     const btnLancar = document.getElementById('btnLancarMaster');
     if (btnLancar) {
         btnLancar.addEventListener('click', app.lancarFinanceiro);
     }
     
-    // Botão Injetar Dados
     const btnInjetar = document.getElementById('btnInjetarDados');
     if (btnInjetar) {
         btnInjetar.addEventListener('click', app.injetarDados);
@@ -362,9 +341,7 @@ app.salvarCliente = async function() {
     
     console.log(isEdit ? "✏️ Salvando edição" : "➕ Criando novo cliente");
     
-    // Coleta dados
-    const dados = {
-        nome: document.getElementById('nomeEmpresa')?.value || '',
+    const dados = {        nome: document.getElementById('nomeEmpresa')?.value || '',
         whatsapp: document.getElementById('whatsappFaturamento')?.value || '',
         nicho: document.getElementById('nichoOperacional')?.value || '',
         usuarioAdmin: document.getElementById('usuarioAdmin')?.value || '',
@@ -387,7 +364,6 @@ app.salvarCliente = async function() {
         }
     };
     
-    // Validação
     if (!dados.nome || !dados.usuarioAdmin || !dados.senhaAdmin) {
         alert('❌ Preencha: Nome, Usuário Admin e Senha!');
         return;
@@ -401,19 +377,29 @@ app.salvarCliente = async function() {
     
     try {
         if (isEdit) {
-            // Edição
-            dados.dataAtualizacao = firebase.firestore.FieldValue.serverTimestamp();
-            await app.db.collection('oficinas').doc(editandoId).update(dados);
-            alert('✅ Cliente atualizado!');
+            const docRef = app.db.collection('oficinas').doc(editandoId);
+            const docSnap = await docRef.get();
+            
+            if (!docSnap.exists) {
+                console.warn("⚠️ Documento não existe. Criando novo...");
+                delete dados.dataAtualizacao;
+                dados.dataCriacao = firebase.firestore.FieldValue.serverTimestamp();
+                dados.ultimoAcesso = null;
+                
+                await app.db.collection('oficinas').add(dados);
+                alert('✅ Cliente excluído anteriormente. Novo cliente criado!');
+            } else {
+                dados.dataAtualizacao = firebase.firestore.FieldValue.serverTimestamp();
+                await docRef.update(dados);                alert('✅ Cliente atualizado!');
+            }
+            
             sessionStorage.removeItem('editandoClienteId');
             
-            // Restaura botão
             if (btn) {
                 btn.innerText = 'IMPLANTAR SISTEMA NA NUVEM';
                 btn.classList.remove('btn-warning');
             }
         } else {
-            // Criação
             dados.dataCriacao = firebase.firestore.FieldValue.serverTimestamp();
             dados.ultimoAcesso = null;
             
@@ -421,12 +407,10 @@ app.salvarCliente = async function() {
             alert('✅ Cliente criado!\n\nLogin: ' + dados.usuarioAdmin);
         }
         
-        // Limpa form
         document.getElementById('nomeEmpresa').value = '';
         document.getElementById('usuarioAdmin').value = '';
         document.getElementById('senhaAdmin').value = '';
         
-        // Volta pro dashboard
         app.mostrarSecao('dashboard');
         
     } catch (error) {
@@ -455,8 +439,7 @@ app.lancarFinanceiro = async function() {
         alert('❌ Preencha descrição e valor!');
         return;
     }
-    
-    try {
+        try {
         await app.db.collection('financeiro_master').add({
             tipo: tipo,
             desc: desc,
@@ -468,11 +451,9 @@ app.lancarFinanceiro = async function() {
         
         alert('✅ Lançamento registrado!');
         
-        // Fecha modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('modalFinanceiroMaster'));
         if (modal) modal.hide();
         
-        // Limpa
         document.getElementById('descFinanceiroMaster').value = '';
         document.getElementById('valorFinanceiroMaster').value = '';
         
@@ -507,9 +488,7 @@ app.injetarDados = async function() {
     
     try {
         const dados = JSON.parse(jsonStr);
-        const tenantId = tenantSelect.value;
-        
-        // Mapeia coleção
+        const tenantId = tenantSelect.value;        
         const colecoes = {
             'crm': 'clientes_base',
             'estoque': 'estoque',
@@ -558,8 +537,7 @@ app.abrirModalFinanceiro = function(tipo) {
     if (!modalEl) return;
     
     const tipoField = document.getElementById('tipoFinanceiroMaster');
-    if (tipoField) tipoField.value = tipo;
-    
+    if (tipoField) tipoField.value = tipo;    
     const titulo = document.getElementById('modalFinanceiroTitulo');
     if (titulo) {
         titulo.innerText = tipo === 'ENTRADA' ? 'Lançar Recebimento' : 'Lançar Pagamento';
