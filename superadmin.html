@@ -1,146 +1,514 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-bs-theme="dark">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>thIAguinho.Digital - ERP B2B (Master Hub)</title>
-    
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
-        :root { --bs-accent: #3b82f6; --bg-darker: #020617; --bg-card: #0f172a; --border-color: #1e293b; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-darker); color: #f8f9fa; min-height: 100vh; display: flex; flex-direction: column;}
-        ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: var(--bg-darker); } ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: var(--bs-accent); }
-        
-        .navbar { background-color: rgba(15, 23, 42, 0.95) !important; backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); }
-        .nav-pills .nav-link { color: #94a3b8; padding: 12px 24px; border-radius: 12px; font-weight: 600; transition: 0.3s; border: 1px solid transparent;}
-        .nav-pills .nav-link:hover { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
-        .nav-pills .nav-link.active { background-color: var(--bs-accent); color: #fff; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); border-color: var(--bs-accent); }
-        
-        .card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; }
-        .card-header { background-color: transparent; border-bottom: 1px solid var(--border-color); padding: 25px; }
-        
-        .table th { background-color: #0b1120 !important; color: #94a3b8 !important; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--border-color) !important; padding: 15px;}
-        .table td { border-color: var(--border-color); vertical-align: middle; padding: 15px; background: transparent !important; color: #f1f5f9;}
-        
-        .form-control, .form-select { background-color: rgba(0,0,0,0.4) !important; color: #fff !important; border: 1px solid #334155 !important; padding: 15px; border-radius: 12px; font-weight: 500;}
-        .form-control:focus, .form-select:focus { border-color: var(--bs-accent) !important; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
-        
-        .module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
-        .module-card { background: rgba(0,0,0,0.3); border: 1px solid #334155; padding: 20px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s; }
-        .module-card:hover { border-color: var(--bs-accent); background: rgba(59, 130, 246, 0.05); }
-        .form-switch .form-check-input { width: 3em; height: 1.5em; cursor: pointer; }
-        
-        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
-        .optgroup-header { background: #1e293b; color: #3b82f6; font-weight: bold; font-size: 0.9rem;}
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --accent: #00d4ff;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+        }
+        body {
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+        .navbar {
+            background: var(--bg-card) !important;
+            border-bottom: 2px solid var(--accent);
+        }
+        .sidebar {
+            background: var(--bg-card);
+            min-height: calc(100vh - 70px);
+            border-right: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        .nav-link {
+            color: var(--text-secondary);
+            padding: 12px 20px;
+            border-left: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--accent);
+            background: rgba(0, 212, 255, 0.1);
+            border-left-color: var(--accent);
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background: rgba(0, 212, 255, 0.1);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 25px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(0, 153, 204, 0.1) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        .form-control, .form-select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+        }
+        .form-control:focus, .form-select:focus {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 0.2rem rgba(0, 212, 255, 0.25);
+        }
+        .form-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #0099cc 100%);
+            border: none;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #00b8e6 0%, #0088b3 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
+        }
+        .table {
+            color: var(--text-primary);
+        }
+        .table thead {
+            background: rgba(0, 212, 255, 0.1);
+        }
+        .badge {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        .section-title {
+            color: var(--accent);
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+        }
     </style>
 </head>
 <body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="#">
+                <i class="bi bi-hexagon-fill me-2"></i>thIAguinho Soluções
+            </a>
+            <span class="navbar-text text-white-50">Sistema ERP Central (SaaS)</span>
+            <button class="btn btn-outline-danger btn-sm ms-auto" onclick="app.sair()">
+                <i class="bi bi-box-arrow-left me-1"></i>Trancar Agência
+            </button>
+        </div>
+    </nav>
 
-    <div class="toast-container" id="toastContainer"></div>
-
-    <div id="adminPanel" class="d-flex flex-column h-100">
-        <nav class="navbar navbar-expand-lg py-3 sticky-top shadow-sm">
-            <div class="container-fluid px-4">
-                <a class="navbar-brand d-flex align-items-center gap-3" href="#">
-                    <i class="bi bi-hexagon-fill text-primary fs-1" style="filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.5));"></i>
-                    <div>
-                        <h3 class="mb-0 fw-bold text-white tracking-wide">thIAguinho Soluções</h3>
-                        <span class="text-primary small fw-bold text-uppercase" style="letter-spacing: 2px;">Sistema ERP Central (SaaS)</span>
-                    </div>
-                </a>
-                <button class="btn btn-outline-danger px-4 rounded-pill fw-bold shadow-sm" onclick="sair()"><i class="bi bi-lock-fill me-2"></i> Trancar Agência</button>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar p-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#dashboard" onclick="app.mostrarSecao('dashboard')">
+                            <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#clientes" onclick="app.mostrarSecao('clientes')">
+                            <i class="bi bi-building me-2"></i>Meus Clientes (Tenants)
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#financeiro" onclick="app.mostrarSecao('financeiro')">
+                            <i class="bi bi-cash-stack me-2"></i>Meu ERP Financeiro
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#onboarding" onclick="app.mostrarSecao('onboarding')">
+                            <i class="bi bi-database-fill-up me-2"></i>Carga de Dados (Onboarding)
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#projetos" onclick="app.mostrarSecao('projetos')">
+                            <i class="bi bi-briefcase me-2"></i>Projetos Contratados
+                        </a>
+                    </li>
+                </ul>
             </div>
-        </nav>
 
-        <div class="container-fluid mt-4 px-4 pb-5 flex-grow-1">
-            <ul class="nav nav-pills mb-4 d-inline-flex bg-card p-2 rounded-4 border border-secondary shadow-sm" id="pills-tab">
-                <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tabClientes"><i class="bi bi-buildings-fill me-2"></i> Meus Clientes (Tenants)</button></li>
-                <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tabFinanceiro"><i class="bi bi-bank me-2"></i> Meu ERP Financeiro</button></li>
-                <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tabImportacao"><i class="bi bi-database-down me-2"></i> Carga de Dados (Onboarding)</button></li>
-            </ul>
-
-            <div class="tab-content" id="pills-tabContent">
+            <!-- Main Content -->
+            <div class="col-md-10 p-4">
                 
-                <div class="tab-pane fade show active" id="tabClientes">
-                    <div class="row g-4 mb-4">
-                        <div class="col-md-4"><div class="card p-4 h-100 border-0 shadow" style="background: linear-gradient(135deg, #1e3a8a, #0f172a);"><h6 class="text-primary text-uppercase fw-bold mb-3"><i class="bi bi-briefcase me-2"></i> Projetos Contratados</h6><h1 class="display-3 fw-bold text-white mb-0" id="kpiTotal">0</h1></div></div>
-                        <div class="col-md-4"><div class="card p-4 h-100 border-0 shadow" style="background: linear-gradient(135deg, #14532d, #0f172a);"><h6 class="text-success text-uppercase fw-bold mb-3"><i class="bi bi-check-circle me-2"></i> Licenças Ativas</h6><h1 class="display-3 fw-bold text-white mb-0" id="kpiAtivos">0</h1></div></div>
-                        <div class="col-md-4"><div class="card p-4 h-100 border-0 shadow" style="background: linear-gradient(135deg, #7f1d1d, #0f172a);"><h6 class="text-danger text-uppercase fw-bold mb-3"><i class="bi bi-x-circle me-2"></i> Sistemas Suspensos</h6><h1 class="display-3 fw-bold text-white mb-0" id="kpiBloqueados">0</h1></div></div>
+                <!-- Dashboard Section -->
+                <div id="secao-dashboard" class="secao">
+                    <h2 class="section-title">Dashboard</h2>
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-number" id="lblAtivos">0</div>
+                                <div class="stat-label">Licenças Ativas</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-number" id="lblSuspensos">0</div>
+                                <div class="stat-label">Sistemas Suspensos</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-number" id="lblTotalAmbientes">0</div>
+                                <div class="stat-label">Ambientes B2B Implantados</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="card shadow-lg">
-                        <div class="card-header d-flex justify-content-between align-items-center bg-black rounded-top-4">
-                            <div>
-                                <h4 class="mb-1 text-white fw-bold">Ambientes B2B Implantados</h4>
-                                <p class="mb-0 text-white-50 small">Crie a infraestrutura para Barbearias, Oficinas, Dentistas, Escolas e mais.</p>
-                            </div>
-                            <button class="btn btn-primary px-4 py-3 fw-bold shadow-lg fs-6" onclick="abrirModalTenant('add')"><i class="bi bi-rocket-takeoff-fill me-2"></i> CRIAR NOVO CLIENTE</button>
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-plus-circle me-2"></i>Crie a infraestrutura para Barbearias, Oficinas, Dentistas, Escolas e mais.
                         </div>
-                        <div class="card-body p-0">
+                        <div class="card-body text-center p-5">
+                            <button class="btn btn-primary btn-lg" onclick="app.mostrarSecao('criar')">
+                                <i class="bi bi-plus-lg me-2"></i>CRIAR NOVO CLIENTE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clientes Section -->
+                <div id="secao-clientes" class="secao" style="display:none;">
+                    <h2 class="section-title">Meus Clientes (Tenants)</h2>
+                    <div class="card">
+                        <div class="card-body">
                             <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead><tr><th class="ps-4">Código</th><th>Empresa Cliente</th><th>Nicho Motor</th><th>Usuário Admin</th><th>Status SaaS</th><th class="text-center pe-4">Gerenciar</th></tr></thead>
-                                    <tbody id="tabelaTenants"></tbody>
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Empresa Cliente</th>
+                                            <th>Nicho Motor</th>
+                                            <th>Usuário Admin</th>
+                                            <th>Status SaaS</th>
+                                            <th>Gerenciar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabelaClientesCorpo">
+                                        <tr><td colspan="6" class="text-center text-muted">Carregando...</td></tr>
+                                    </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="tab-pane fade" id="tabFinanceiro">
-                    <div class="row g-4 mb-4">
-                        <div class="col-md-4"><div class="card p-4 border-0 border-start border-success border-5"><h6 class="text-success text-uppercase fw-bold mb-3">Receitas (Entradas)</h6><h2 class="fw-bold text-white mb-0" id="saasReceitas">R$ 0,00</h2></div></div>
-                        <div class="col-md-4"><div class="card p-4 border-0 border-start border-danger border-5"><h6 class="text-danger text-uppercase fw-bold mb-3">Despesas (Saídas)</h6><h2 class="fw-bold text-white mb-0" id="saasDespesas">R$ 0,00</h2></div></div>
-                        <div class="col-md-4"><div class="card p-4 border-0 border-start border-info border-5"><h6 class="text-info text-uppercase fw-bold mb-3">Lucro Líquido da Agência</h6><h2 class="fw-bold text-white mb-0" id="saasLucro">R$ 0,00</h2></div></div>
-                    </div>
+                <!-- Financeiro Section -->
+                <div id="secao-financeiro" class="secao" style="display:none;">
+                    <h2 class="section-title">Livro Caixa thIAguinho Soluções</h2>
                     
-                    <div class="card border-0 shadow-lg">
-                        <div class="card-header d-flex justify-content-between align-items-center bg-black rounded-top-4">
-                            <div><h4 class="mb-1 text-white fw-bold"><i class="bi bi-wallet2 text-success me-2"></i> Livro Caixa thIAguinho Soluções</h4></div>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-outline-danger fw-bold shadow-sm" onclick="abrirModalLancamentoSaaS('Saida')"><i class="bi bi-dash-circle me-1"></i> Lançar Pagamento</button>
-                                <button class="btn btn-success fw-bold shadow-sm" onclick="abrirModalLancamentoSaaS('Entrada')"><i class="bi bi-plus-circle me-1"></i> Lançar Recebimento</button>
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card text-center p-3">
+                                <div class="text-success fw-bold fs-4" id="lblReceitas">R$ 0,00</div>
+                                <div class="text-muted small">Receitas (Entradas)</div>
                             </div>
                         </div>
-                        <div class="card-body p-0">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead><tr><th class="ps-4">Data</th><th>Natureza</th><th>Cliente Vinculado / Origem</th><th>Método</th><th>Valor</th><th>Ação</th></tr></thead>
-                                <tbody id="tabelaSaasFin"></tbody>
-                            </table>
+                        <div class="col-md-4">
+                            <div class="card text-center p-3">
+                                <div class="text-danger fw-bold fs-4" id="lblDespesas">R$ 0,00</div>
+                                <div class="text-muted small">Despesas (Saídas)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-center p-3">
+                                <div class="text-info fw-bold fs-4" id="lblLucro">R$ 0,00</div>
+                                <div class="text-muted small">Lucro Líquido da Agência</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-journal-text me-2"></i>Livro Caixa thIAguinho Soluções</span>
+                            <div>
+                                <button class="btn btn-sm btn-outline-danger me-2" onclick="app.abrirModalFinanceiro('SAIDA')">
+                                    <i class="bi bi-dash-circle me-1"></i>Lançar Pagamento
+                                </button>
+                                <button class="btn btn-sm btn-outline-success" onclick="app.abrirModalFinanceiro('ENTRADA')">
+                                    <i class="bi bi-plus-circle me-1"></i>Lançar Recebimento
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Natureza</th>
+                                            <th>Cliente Vinculado / Origem</th>
+                                            <th>Método</th>
+                                            <th>Valor</th>
+                                            <th>Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabelaFinanceiroMasterCorpo">
+                                        <tr><td colspan="6" class="text-center text-muted">Carregando...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="tab-pane fade" id="tabImportacao">
-                    <div class="card p-5 border-primary shadow-lg" style="border-width: 2px;">
-                        <h3 class="text-white fw-bold mb-3"><i class="bi bi-braces text-primary me-2"></i> Onboarding de Clientes (Injeção de Dados)</h3>
-                        <p class="text-white-50 mb-4 fs-6">Quando fechar com um cliente novo (Ex: Kumon), pegue a planilha de alunos dele, converta em JSON e injete direto no banco isolado dele por aqui.</p>
-                        
-                        <div class="row g-4 bg-black p-4 rounded-4 border border-secondary">
-                            <div class="col-md-6">
-                                <label class="text-info fw-bold mb-2">1. Escolha a Empresa Contratante</label>
-                                <select class="form-select border-info text-white fw-bold" id="importTenantDestino"><option value="">Nenhuma empresa cadastrada...</option></select>
+                <!-- Onboarding Section -->
+                <div id="secao-onboarding" class="secao" style="display:none;">
+                    <h2 class="section-title">Onboarding de Clientes (Injeção de Dados)</h2>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>Quando fechar com um cliente novo (Ex: Kumon), pegue a planilha de alunos dele, converta em JSON e injete direto no banco isolado dele por aqui.
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">1. Escolha a Empresa Contratante</label>
+                                <select class="form-select" id="selectEmpresaOnboarding">
+                                    <option value="">Nenhuma empresa cadastrada...</option>
+                                </select>
                             </div>
-                            <div class="col-md-6">
-                                <label class="text-warning fw-bold mb-2">2. Escolha o Módulo de Destino</label>
-                                <select class="form-select border-warning text-white fw-bold" id="importColecao">
-                                    <option value="clientes_base">Base CRM (Clientes / Alunos / Pacientes)</option>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">2. Escolha o Módulo de Destino</label>
+                                <select class="form-select" id="selectModuloDestino">
+                                    <option value="crm">Base CRM (Clientes / Alunos / Pacientes)</option>
                                     <option value="estoque">Estoque Inicial (Peças / Livros / Bebidas)</option>
-                                    <option value="ordens_servico">Histórico Passado (O.S / Prontuários)</option>
+                                    <option value="historico">Histórico Passado (O.S / Prontuários)</option>
                                 </select>
                             </div>
-                            <div class="col-12">
-                                <label class="text-white-50 mb-2">3. Cole o Array JSON</label>
-                                <textarea class="form-control text-success font-monospace" rows="10" id="importJsonPayload" placeholder='Exemplo:\n[\n  {"nome": "Maria Silva", "telefone": "1199999999"},\n  {"nome": "João Souza", "telefone": "1188888888"}\n]'></textarea>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">3. Cole o Array JSON</label>
+                                <textarea class="form-control" id="jsonInput" rows="8" placeholder='[{"nome": "Exemplo", "telefone": "11999999999"}]'></textarea>
                             </div>
-                            <div class="col-12 text-end mt-4">
-                                <button class="btn btn-primary px-5 py-3 fw-bold fs-5 shadow-lg" onclick="injetarDadosJSON()"><i class="bi bi-cloud-upload-fill me-2"></i> INJETAR DADOS NA NUVEM</button>
+                            
+                            <button class="btn btn-primary" id="btnInjetarDados">
+                                <i class="bi bi-cloud-upload me-2"></i>INJETAR DADOS NA NUVEM
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Criar Cliente Section -->
+                <div id="secao-criar" class="secao" style="display:none;">
+                    <h2 class="section-title">Laboratório de Criação de Sistema</h2>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-file-earmark-text me-2"></i>Dados Contratuais
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Nome da Empresa Responsável Legal *</label>
+                                    <input type="text" class="form-control" id="nomeEmpresa" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">WhatsApp p/ Faturamento</label>
+                                    <input type="text" class="form-control" id="whatsappFaturamento" placeholder="(11) 99999-9999">
+                                </div>
                             </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">NICHO OPERACIONAL (Isto define a interface do cliente) *</label>
+                                <select class="form-select" id="nichoOperacional" required>
+                                    <option value="">Escolha a fundação do sistema B2B...</option>
+                                    <option value="oficina_mecanica">Oficina Mecânica / Auto Center (Veículos / HotCar)</option>
+                                    <option value="oficina_motos">Oficina de Motos (Evolution)</option>
+                                    <option value="oficina_bikes">Oficina de Bicicletas / Bike Shop</option>
+                                    <option value="retifica">Retífica de Motores (Ronaldinho)</option>
+                                    <option value="clinica_odonto">Clínica Odontológica (Prontuários / Dent-IA)</option>
+                                    <option value="clinica_medica">Clínica Médica / Terapia</option>
+                                    <option value="barbearia">Barbearia / Salão de Beleza (Habibi Barbearia)</option>
+                                    <option value="escola">Escola / Método de Ensino (Alunos, Estágios / Kumon)</option>
+                                    <option value="distribuidora">Distribuidora Atacadista B2B (MS Distribuidora)</option>
+                                    <option value="loja_fisica">Loja Física / PDV (TechmessRP)</option>
+                                    <option value="marcenaria">Marcenaria / Projetos 3D (Cortes)</option>
+                                    <option value="construtora">Construtora / Gestão de Obras</option>
+                                    <option value="corridas">Gestão de Corridas / Kit Eventos (LeRunnersRP)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Status do Sistema</label>
+                                    <select class="form-select" id="statusSistema">
+                                        <option value="Liberado">Liberado (Em Dia)</option>
+                                        <option value="Bloqueado">Bloqueado (Inadimplente)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <i class="bi bi-key-fill me-2"></i>Credenciais & Chaves de Nuvem
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Usuário Admin do Cliente *</label>
+                                    <input type="text" class="form-control" id="usuarioAdmin" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Senha Admin do Cliente *</label>
+                                    <input type="password" class="form-control" id="senhaAdmin" required>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Google Gemini API Key (Cérebro da Oficina/Escola)</label>
+                                    <input type="text" class="form-control" id="geminiKey" placeholder="AIza...">
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Cloudinary: Cloud Name (Banco de Imagens)</label>
+                                    <input type="text" class="form-control" id="cloudinaryName" value="dmuvm1o6m">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Cloudinary: Upload Preset</label>
+                                    <input type="text" class="form-control" id="cloudinaryPreset" value="evolution">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <i class="bi bi-toggle-on me-2"></i>Liberação de Módulos (O que ele vai pagar para usar?)
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="moduloFinanceiro" checked>
+                                        <label class="form-check-label" for="moduloFinanceiro">
+                                            <strong>Financeiro Admin</strong><br>
+                                            <small class="text-muted">DRE, Contas Pagar/Receber</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="moduloCRM" checked>
+                                        <label class="form-check-label" for="moduloCRM">
+                                            <strong>CRM Base</strong><br>
+                                            <small class="text-muted">Cadastro de Clientes/Alunos</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="moduloEstoqueVendas" checked>
+                                        <label class="form-check-label" for="moduloEstoqueVendas">
+                                            <strong>Estoque (Vendas)</strong><br>
+                                            <small class="text-muted">Peças, Livros, Produtos</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="moduloEstoqueInterno">
+                                        <label class="form-check-label" for="moduloEstoqueInterno">
+                                            <strong>Estoque (Consumo Interno)</strong><br>
+                                            <small class="text-muted">Shampoo, Graxa, Resina</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="moduloKanban" checked>
+                                        <label class="form-check-label" for="moduloKanban">
+                                            <strong>Kanban / Prontuário</strong><br>
+                                            <small class="text-muted">Motor Chevron de Fluxo</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="moduloPDF" checked>
+                                        <label class="form-check-label" for="moduloPDF">
+                                            <strong>Exportação PDF</strong><br>
+                                            <small class="text-muted">Laudos Estilo Menechelli</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="moduloChat">
+                                        <label class="form-check-label" for="moduloChat">
+                                            <strong>Chat Integrado Web</strong><br>
+                                            <small class="text-muted">Fale com o Cliente/Aluno</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="moduloIA">
+                                        <label class="form-check-label" for="moduloIA">
+                                            <strong>J.A.R.V.I.S (I.A. RAG)</strong><br>
+                                            <small class="text-muted">Consultoria e Análise de Dados</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 d-flex gap-2">
+                        <button class="btn btn-secondary" onclick="app.mostrarSecao('dashboard')">
+                            <i class="bi bi-x-circle me-2"></i>CANCELAR
+                        </button>
+                        <button class="btn btn-primary btn-lg" id="btnImplantar">
+                            <i class="bi bi-cloud-check me-2"></i>IMPLANTAR SISTEMA NA NUVEM
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Projetos Section -->
+                <div id="secao-projetos" class="secao" style="display:none;">
+                    <h2 class="section-title">Projetos Contratados</h2>
+                    <div class="card">
+                        <div class="card-body text-center text-muted p-5">
+                            <i class="bi bi-briefcase display-1 mb-3 d-block"></i>
+                            <p>Em desenvolvimento...</p>
                         </div>
                     </div>
                 </div>
@@ -149,385 +517,59 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modalTenant" tabindex="-1" data-bs-backdrop="static">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content shadow-lg border-primary" style="background: #0f172a; border-width: 2px;">
-                <div class="modal-header border-secondary p-4 bg-black">
-                    <h3 class="modal-title fw-bold text-white mb-0"><i class="bi bi-cpu-fill text-primary me-2"></i> Laboratório de Criação de Sistema</h3>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4 p-md-5">
-                    <form id="formTenant" onsubmit="salvarTenant(event)">
-                        <input type="hidden" id="tntId">
-                        
-                        <h5 class="text-white fw-bold mb-3 border-bottom border-secondary pb-2"><i class="bi bi-1-circle text-info me-2"></i>Dados Contratuais</h5>
-                        <div class="row g-4 mb-5 bg-black p-4 rounded-4 border border-secondary">
-                            <div class="col-md-5"><label class="text-white-50 mb-1 small fw-bold">Nome da Empresa</label><input type="text" class="form-control" id="tntNome" placeholder="Ex: MENECHELLI Motors" required></div>
-                            <div class="col-md-4"><label class="text-white-50 mb-1 small fw-bold">Responsável Legal</label><input type="text" class="form-control" id="tntResp" required></div>
-                            <div class="col-md-3"><label class="text-white-50 mb-1 small fw-bold">WhatsApp p/ Faturamento</label><input type="text" class="form-control" id="tntTel" required></div>
-                            
-                            <div class="col-md-9 mt-4">
-                                <label class="text-primary fw-bold mb-1"><i class="bi bi-funnel-fill"></i> NICHO OPERACIONAL (Isto define a interface do cliente)</label>
-                                <select class="form-select border-primary fw-bold text-white fs-5" id="tntNicho" required style="background: rgba(59, 130, 246, 0.1) !important;">
-                                    <option value="" disabled selected>Escolha a fundação do sistema B2B...</option>
-                                    
-                                    <optgroup label="🛠️ Setor Automotivo & Máquinas" class="optgroup-header">
-                                        <option value="oficina_carros">Oficina Mecânica / Auto Center (Veículos / HotCar)</option>
-                                        <option value="oficina_motos">Oficina de Motos (Evolution)</option>
-                                        <option value="oficina_bikes">Oficina de Bicicletas / Bike Shop</option>
-                                        <option value="retifica">Retífica de Motores (Ronaldinho)</option>
-                                    </optgroup>
-                                    
-                                    <optgroup label="⚕️ Setor de Saúde, Beleza e Estética" class="optgroup-header">
-                                        <option value="odontologia">Clínica Odontológica (Prontuários / Dent-IA)</option>
-                                        <option value="medicina">Clínica Médica / Terapia</option>
-                                        <option value="barbearia">Barbearia / Salão de Beleza (Habibi Barbearia)</option>
-                                    </optgroup>
-                                    
-                                    <optgroup label="📚 Setor de Educação" class="optgroup-header">
-                                        <option value="escola_kumon">Escola / Método de Ensino (Alunos, Estágios / Kumon)</option>
-                                    </optgroup>
-                                    
-                                    <optgroup label="🛒 Varejo e Distribuição" class="optgroup-header">
-                                        <option value="distribuidora_b2b">Distribuidora Atacadista B2B (MS Distribuidora)</option>
-                                        <option value="loja_online">Loja Física / PDV (TechmessRP)</option>
-                                    </optgroup>
-                                    
-                                    <optgroup label="🏗️ Engenharia & Eventos" class="optgroup-header">
-                                        <option value="marcenaria">Marcenaria / Projetos 3D (Cortes)</option>
-                                        <option value="construtora">Construtora / Gestão de Obras</option>
-                                        <option value="eventos_corridas">Gestão de Corridas / Kit Eventos (LeRunnersRP)</option>
-                                    </optgroup>
-                                </select>
-                            </div>
-                            <div class="col-md-3 mt-4">
-                                <label class="text-white-50 mb-1 fw-bold">Status do Sistema</label>
-                                <select class="form-select fw-bold fs-5" id="tntStatus"><option value="Ativo" class="text-success">Liberado (Em Dia)</option><option value="Bloqueado" class="text-danger">Bloqueado (Inadimplente)</option></select>
-                            </div>
-                        </div>
-
-                        <h5 class="text-white fw-bold mb-3 border-bottom border-secondary pb-2"><i class="bi bi-2-circle text-info me-2"></i>Credenciais & Chaves de Nuvem</h5>
-                        <div class="row g-3 mb-5 p-4 rounded-4" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color);">
-                            <div class="col-md-6"><label class="text-white-50 small">Usuário Admin do Cliente</label><input type="text" class="form-control text-warning fw-bold border-warning" id="tntUser" required></div>
-                            <div class="col-md-6"><label class="text-white-50 small">Senha Admin do Cliente</label><input type="text" class="form-control text-warning fw-bold border-warning" id="tntPass" required></div>
-                            
-                            <div class="col-md-12 mt-4"><label class="text-white-50 small"><i class="bi bi-google text-success"></i> Google Gemini API Key (Cérebro da Oficina/Escola)</label><input type="password" class="form-control font-monospace border-success" id="tntGemini" placeholder="AIzaSy..."></div>
-                            <div class="col-md-6 mt-3"><label class="text-white-50 small"><i class="bi bi-cloud text-info"></i> Cloudinary: Cloud Name (Banco de Imagens)</label><input type="text" class="form-control font-monospace border-info" id="tntCloudName" placeholder="Ex: dl6gxeamz"></div>
-                            <div class="col-md-6 mt-3"><label class="text-white-50 small"><i class="bi bi-cloud text-info"></i> Cloudinary: Upload Preset</label><input type="text" class="form-control font-monospace border-info" id="tntCloudPreset" placeholder="Ex: ml_default"></div>
-                        </div>
-
-                        <h5 class="text-white fw-bold mb-3 border-bottom border-secondary pb-2"><i class="bi bi-3-circle text-info me-2"></i>Liberação de Módulos (O que ele vai pagar para usar?)</h5>
-                        <div class="module-grid mb-4">
-                            <div class="module-card"><div><h6 class="text-white mb-0">Financeiro Admin</h6><small class="text-white-50">DRE, Contas Pagar/Receber</small></div><div class="form-switch"><input class="form-check-input" type="checkbox" id="modFin"></div></div>
-                            <div class="module-card"><div><h6 class="text-white mb-0">CRM Base</h6><small class="text-white-50">Cadastro de Clientes/Alunos</small></div><div class="form-switch"><input class="form-check-input" type="checkbox" id="modCrm"></div></div>
-                            
-                            <div class="module-card" style="border-color: rgba(59, 130, 246, 0.4);"><div><h6 class="text-primary mb-0">Estoque (Vendas)</h6><small class="text-white-50">Peças, Livros, Produtos</small></div><div class="form-switch"><input class="form-check-input" type="checkbox" id="modEstoque"></div></div>
-                            <div class="module-card" style="border-color: rgba(59, 130, 246, 0.4);"><div><h6 class="text-primary mb-0">Estoque (Consumo Interno)</h6><small class="text-white-50">Shampoo, Graxa, Resina</small></div><div class="form-switch"><input class="form-check-input" type="checkbox" id="modEstoqueInterno"></div></div>
-                            
-                            <div class="module-card" style="border-color: rgba(16, 185, 129, 0.4);"><div><h6 class="text-success mb-0">Kanban / Prontuário</h6><small class="text-white-50">Motor Chevron de Fluxo</small></div><div class="form-switch"><input class="form-check-input" type="checkbox" id="modKanban"></div></div>
-                            <div class="module-card" style="border-color: rgba(16, 185, 129, 0.4);"><div><h6 class="text-success mb-0">Exportação PDF</h6><small class="text-white-50">Laudos Estilo Menechelli</small></div><div class="form-switch"><input class="form-check-input" type="checkbox" id="modPdf"></div></div>
-                            
-                            <div class="module-card" style="border-color: rgba(245, 158, 11, 0.4);"><div><h6 class="text-warning mb-0">Chat Integrado Web</h6><small class="text-white-50">Fale com o Cliente/Aluno</small></div><div class="form-switch"><input class="form-check-input" type="checkbox" id="modChat"></div></div>
-                            <div class="module-card" style="border-color: rgba(245, 158, 11, 0.4);"><div><h6 class="text-warning mb-0">J.A.R.V.I.S (I.A. RAG)</h6><small class="text-white-50">Consultoria e Análise de Dados</small></div><div class="form-switch"><input class="form-check-input" type="checkbox" id="modIa"></div></div>
-                        </div>
-
-                        <div class="d-flex justify-content-end gap-3 border-top border-secondary pt-4 mt-5">
-                            <button type="button" class="btn btn-outline-light px-5 py-3 fw-bold" data-bs-dismiss="modal">CANCELAR</button>
-                            <button type="submit" class="btn btn-primary px-5 py-3 fw-bold shadow-lg fs-5"><i class="bi bi-rocket-fill me-2"></i> IMPLANTAR SISTEMA NA NUVEM</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalSaasFin" tabindex="-1">
+    <!-- Modal Financeiro -->
+    <div class="modal fade" id="modalFinanceiroMaster" tabindex="-1">
         <div class="modal-dialog">
-            <div class="modal-content border-success bg-dark" id="modalFinContainer">
-                <div class="modal-header border-secondary bg-black">
-                    <h5 class="modal-title text-white fw-bold" id="fin_titulo"><i class="bi bi-wallet2 text-success me-2"></i> Lançamento Financeiro SaaS</h5>
+            <div class="modal-content" style="background: var(--bg-card); border: 1px solid rgba(0, 212, 255, 0.3);">
+                <div class="modal-header" style="border-bottom: 1px solid rgba(0, 212, 255, 0.3);">
+                    <h5 class="modal-title text-white" id="modalFinanceiroTitulo">Lançamento Financeiro</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <form onsubmit="salvarSaasFin(event)">
-                        <input type="hidden" id="sfTipoModal" value="Entrada">
-                        
-                        <div class="mb-3" id="divTenantSelect">
-                            <label class="text-white-50 fw-bold small">Cliente Vinculado (Origem da Receita)</label>
-                            <select class="form-select bg-black text-white fw-bold" id="sfTenantId">
-                                <option value="Avulso">-- Receita Avulsa / Nenhuma Empresa --</option>
-                                </select>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="text-white-50 fw-bold small">Histórico / Descrição do Lançamento</label>
-                            <input type="text" class="form-control bg-black text-white" id="sfDesc" required placeholder="Ex: Mensalidade Sistema ERP - Ref. Maio">
-                        </div>
-                        
-                        <div class="row g-3 mb-3">
-                            <div class="col-6">
-                                <label class="text-white-50 fw-bold small">Valor Total (R$)</label>
-                                <input type="number" step="0.01" class="form-control bg-black fw-bold text-success fs-5" id="sfValor" required>
-                            </div>
-                            <div class="col-6">
-                                <label class="text-white-50 fw-bold small">Data de Lançamento</label>
-                                <input type="date" class="form-control bg-black text-white" id="sfData" required>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="text-white-50 fw-bold small">Método de Pagamento</label>
-                            <select class="form-select bg-black text-white" id="sfMetodo">
-                                <option value="Pix">Pix / Transferência</option>
-                                <option value="Cartao Credito">Cartão de Crédito</option>
-                                <option value="Boleto Bancario">Boleto Bancário</option>
-                                <option value="Dinheiro">Espécie</option>
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn btn-success w-100 fw-bold py-3 shadow" id="btnSalvarFinBox">CONFIRMAR E PROCESSAR NO CAIXA</button>
-                    </form>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente Vinculado (Origem da Receita)</label>
+                        <select class="form-select" id="clienteVinculadoMaster">
+                            <option value="">-- Receita Avulsa / Nenhuma Empresa --</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Histórico / Descrição do Lançamento</label>
+                        <input type="text" class="form-control" id="descFinanceiroMaster" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Valor Total (R$)</label>
+                        <input type="number" step="0.01" class="form-control" id="valorFinanceiroMaster" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Data de Lançamento</label>
+                        <input type="date" class="form-control" id="dataFinanceiroMaster">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Método de Pagamento</label>
+                        <select class="form-select" id="metodoFinanceiroMaster">
+                            <option value="Pix / Transferência">Pix / Transferência</option>
+                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            <option value="Boleto Bancário">Boleto Bancário</option>
+                            <option value="Espécie">Espécie</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid rgba(0, 212, 255, 0.3);">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnLancarMaster">CONFIRMAR E PROCESSAR NO CAIXA</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // =====================================================================
-        // ENGINE PRINCIPAL (CÉREBRO DO ARQUITETO)
-        // =====================================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyBqIuCsHHuy_f-mBWV4JBkbyOorXpqQvqg",
-            authDomain: "hub-thiaguinho.firebaseapp.com",
-            projectId: "hub-thiaguinho",
-            storageBucket: "hub-thiaguinho.firebasestorage.app",
-            messagingSenderId: "453508098543",
-            appId: "1:453508098543:web:305f4d48edd9be40bd6e1a"
-        };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        function showToast(msg, type = 'success') {
-            const bg = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-warning text-dark';
-            const t = document.createElement('div');
-            t.innerHTML = `<div class="toast align-items-center text-white ${bg} border-0 show shadow-lg p-3 mt-2 rounded-3"><div class="d-flex"><div class="toast-body fw-bold fs-6">${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
-            document.getElementById('toastContainer').appendChild(t.firstChild);
-            setTimeout(() => { if(t.firstChild) t.firstChild.remove(); }, 4000);
-        }
-
-        function sair() { sessionStorage.clear(); window.location.href='index.html'; }
-
-        // O SEU BANCO DE DADOS LIMPO COMEÇA AQUI: `tenants`
-        let dbTenants = [];
-        let dbSaaSFinanceiro = [];
-
-        document.addEventListener('DOMContentLoaded', () => {
-            if (sessionStorage.getItem('thiaguinho_master') !== 'true') { window.location.replace('index.html'); return; }
-            
-            // COLEÇÃO DEFINITIVA E CORRETA: tenants
-            db.collection('tenants').onSnapshot(snap => {
-                dbTenants = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderizarTenants();
-                popularSelectsTenants();
-            });
-
-            // O SEU ERP FINANCEIRO DA AGÊNCIA
-            db.collection('saas_financeiro').onSnapshot(snap => {
-                dbSaaSFinanceiro = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderizarFinanceiroSaaS();
-            });
-            
-            const dataInput = document.getElementById('sfData');
-            if (dataInput) dataInput.value = new Date().toISOString().split('T')[0];
-        });
-
-        // ---------------- GESTÃO DE ARQUITETURA B2B (TENANTS) ----------------
-        function renderizarTenants() {
-            document.getElementById('kpiTotal').innerText = dbTenants.length;
-            document.getElementById('kpiAtivos').innerText = dbTenants.filter(t => t.status === 'Ativo').length;
-            document.getElementById('kpiBloqueados').innerText = dbTenants.filter(t => t.status === 'Bloqueado').length;
-            
-            const tbody = document.getElementById('tabelaTenants');
-            if (dbTenants.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 fs-5 text-white-50"><i class="bi bi-rocket-fill display-4 d-block mb-3 opacity-25"></i> Nenhum sistema implantado. Construa o primeiro.</td></tr>'; return; }
-
-            tbody.innerHTML = dbTenants.map(t => {
-                const bStatus = t.status === 'Ativo' ? '<span class="badge bg-success px-3 py-2"><i class="bi bi-cloud-check-fill me-1"></i> Online</span>' : '<span class="badge bg-danger px-3 py-2"><i class="bi bi-x-circle-fill me-1"></i> Suspenso</span>';
-                const nichoFormatado = t.nicho ? t.nicho.toUpperCase().replace(/_/g, ' ') : 'NÃO DEFINIDO';
-                
-                return `<tr>
-                    <td class="ps-4 font-monospace text-muted small">${t.id.substring(0,5)}</td>
-                    <td><strong class="text-white d-block fs-6">${t.nomeFantasia}</strong><small class="text-white-50"><i class="bi bi-person-fill"></i> ${t.responsavel}</small></td>
-                    <td><span class="badge bg-primary bg-opacity-25 text-primary border border-primary px-3 py-2 shadow-sm">${nichoFormatado}</span></td>
-                    <td><div class="bg-black p-2 rounded border border-secondary text-white-50 small">U: <span class="text-warning">${t.usuario}</span><br>S: <span class="text-warning">${t.senha}</span></div></td>
-                    <td>${bStatus}</td>
-                    <td class="text-center pe-4">
-                        <button class="btn btn-outline-info shadow-sm me-1 fw-bold" onclick="abrirModalTenant('edit', '${t.id}')"><i class="bi bi-sliders me-1"></i> Editar Regras</button>
-                        <button class="btn btn-outline-danger shadow-sm" onclick="apagarTenant('${t.id}')"><i class="bi bi-trash-fill"></i></button>
-                    </td>
-                </tr>`;
-            }).join('');
-        }
-
-        let modalTenantInstance = null;
-        window.abrirModalTenant = function(mode, id = '') {
-            document.getElementById('formTenant').reset();
-            document.querySelectorAll('.module-card input[type="checkbox"]').forEach(cb => cb.checked = false);
-
-            if (mode === 'edit') {
-                const t = dbTenants.find(x => x.id === id);
-                if (t) {
-                    document.getElementById('tntId').value = t.id; document.getElementById('tntNome').value = t.nomeFantasia || '';
-                    document.getElementById('tntResp').value = t.responsavel || ''; document.getElementById('tntTel').value = t.telefone || '';
-                    document.getElementById('tntNicho').value = t.nicho || ''; document.getElementById('tntStatus').value = t.status || 'Ativo';
-                    document.getElementById('tntUser').value = t.usuario || ''; document.getElementById('tntPass').value = t.senha || '';
-                    
-                    if(t.apiKeys) {
-                        document.getElementById('tntGemini').value = t.apiKeys.gemini || '';
-                        document.getElementById('tntCloudName').value = t.apiKeys.cloudinaryName || '';
-                        document.getElementById('tntCloudPreset').value = t.apiKeys.cloudinaryPreset || '';
-                    }
-                    const m = t.modulos || {};
-                    if(m.financeiro) document.getElementById('modFin').checked = true;
-                    if(m.crm) document.getElementById('modCrm').checked = true;
-                    if(m.estoque) document.getElementById('modEstoque').checked = true;
-                    if(m.estoqueInterno) document.getElementById('modEstoqueInterno').checked = true;
-                    if(m.kanban) document.getElementById('modKanban').checked = true;
-                    if(m.pdf) document.getElementById('modPdf').checked = true;
-                    if(m.chat) document.getElementById('modChat').checked = true;
-                    if(m.ia) document.getElementById('modIa').checked = true;
-                }
-            } else { document.getElementById('tntId').value = ''; }
-
-            if (!modalTenantInstance) modalTenantInstance = new bootstrap.Modal(document.getElementById('modalTenant'));
-            modalTenantInstance.show();
-        };
-
-        async function salvarTenant(e) {
-            e.preventDefault();
-            const id = document.getElementById('tntId').value;
-            const payload = {
-                nomeFantasia: document.getElementById('tntNome').value.trim(), responsavel: document.getElementById('tntResp').value.trim(),
-                telefone: document.getElementById('tntTel').value.trim(), nicho: document.getElementById('tntNicho').value,
-                status: document.getElementById('tntStatus').value, usuario: document.getElementById('tntUser').value.trim(),
-                senha: document.getElementById('tntPass').value.trim(),
-                apiKeys: { gemini: document.getElementById('tntGemini').value.trim(), cloudinaryName: document.getElementById('tntCloudName').value.trim(), cloudinaryPreset: document.getElementById('tntCloudPreset').value.trim() },
-                modulos: { financeiro: document.getElementById('modFin').checked, crm: document.getElementById('modCrm').checked, estoque: document.getElementById('modEstoque').checked, estoqueInterno: document.getElementById('modEstoqueInterno').checked, kanban: document.getElementById('modKanban').checked, pdf: document.getElementById('modPdf').checked, chat: document.getElementById('modChat').checked, ia: document.getElementById('modIa').checked },
-                atualizadoEm: new Date().toISOString()
-            };
-
-            try {
-                if (id) { await db.collection('tenants').doc(id).update(payload); showToast("Arquitetura e módulos atualizados na nuvem.", "success"); } 
-                else { payload.criadoEm = new Date().toISOString(); await db.collection('tenants').add(payload); showToast("Implantação de novo cliente concluída!", "success"); }
-                modalTenantInstance.hide();
-            } catch (err) { showToast("Erro no banco: " + err.message, "error"); }
-        }
-
-        async function apagarTenant(id) {
-            if(confirm("🚨 DESTRUIÇÃO DE SISTEMA: Tem certeza que deseja apagar a empresa inteira e cortar o acesso deles à plataforma?")) {
-                try { await db.collection('tenants').doc(id).delete(); showToast("Ambiente expurgado com sucesso.", "success"); } catch(e) { showToast("Falha: " + e.message, "error"); }
-            }
-        }
-
-        // ---------------- O SEU ERP FINANCEIRO (thIAguinho Soluções) ----------------
-        function abrirModalLancamentoSaaS(tipo) {
-            document.getElementById('sfTipoModal').value = tipo;
-            const isReceita = tipo === 'Entrada';
-            document.getElementById('fin_titulo').innerHTML = isReceita ? '<i class="bi bi-plus-circle text-success me-2"></i> Lançar Recebimento de Cliente' : '<i class="bi bi-dash-circle text-danger me-2"></i> Lançar Custo / Despesa Operacional';
-            document.getElementById('modalFinContainer').className = `modal-content bg-dark border-${isReceita ? 'success' : 'danger'}`;
-            document.getElementById('btnSalvarFinBox').className = `btn w-100 fw-bold py-3 shadow-lg btn-${isReceita ? 'success' : 'danger'}`;
-            document.getElementById('sfValor').className = `form-control bg-black fw-bold fs-5 text-${isReceita ? 'success' : 'danger'}`;
-            
-            // Se for despesa, esconde o campo de "Cliente"
-            document.getElementById('divTenantSelect').style.display = isReceita ? 'block' : 'none';
-            document.getElementById('sfDesc').value = ''; document.getElementById('sfValor').value = '';
-            
-            new bootstrap.Modal(document.getElementById('modalSaasFin')).show();
-        }
-
-        function renderizarFinanceiroSaaS() {
-            let ent = 0, sai = 0; const tbody = document.getElementById('tabelaSaasFin');
-            if (dbSaaSFinanceiro.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-white-50">Seu caixa está vazio. Comece a faturar seus clientes.</td></tr>'; } 
-            else {
-                const ord = dbSaaSFinanceiro.sort((a, b) => new Date(b.data) - new Date(a.data));
-                tbody.innerHTML = ord.map(f => {
-                    if (f.tipo === 'Entrada') ent += f.valor; else sai += f.valor;
-                    const cor = f.tipo === 'Entrada' ? 'text-success' : 'text-danger';
-                    const icone = f.tipo === 'Entrada' ? '<i class="bi bi-arrow-up-circle-fill"></i>' : '<i class="bi bi-arrow-down-circle-fill"></i>';
-                    
-                    // Identifica se a receita veio de um Tenant específico ou se é avulsa/despesa
-                    let origemFormatada = f.nomeTenant ? `<span class="badge bg-primary text-white"><i class="bi bi-building"></i> ${f.nomeTenant}</span>` : `<span class="text-white-50">${f.tipo === 'Saida' ? 'Custo Interno' : 'Receita Avulsa'}</span>`;
-
-                    return `<tr>
-                        <td class="text-white-50"><i class="bi bi-calendar2-day me-2"></i> ${new Date(f.data).toLocaleDateString('pt-BR')}</td>
-                        <td class="${cor} fw-bold">${icone} ${f.tipo.toUpperCase()}</td>
-                        <td>${origemFormatada}<br><small class="text-white">${f.desc}</small></td>
-                        <td class="text-white-50 small">${f.metodo}</td>
-                        <td class="${cor} fw-bold fs-6">R$ ${f.valor.toFixed(2).replace('.',',')}</td>
-                        <td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger border-0" onclick="deletarRegistroSaaS('${f.id}')"><i class="bi bi-trash-fill"></i></button></td>
-                    </tr>`;
-                }).join('');
-            }
-            
-            document.getElementById('saasReceitas').innerText = `R$ ${ent.toFixed(2).replace('.',',')}`; 
-            document.getElementById('saasDespesas').innerText = `R$ ${sai.toFixed(2).replace('.',',')}`;
-            
-            const lucro = ent - sai;
-            document.getElementById('saasLucro').innerText = `R$ ${lucro.toFixed(2).replace('.',',')}`;
-            document.getElementById('saasLucro').className = lucro >= 0 ? "fw-bold text-info mb-0" : "fw-bold text-danger mb-0";
-        }
-
-        async function salvarSaasFin(e) {
-            e.preventDefault();
-            const tipo = document.getElementById('sfTipoModal').value;
-            const tenantIdSelecionado = document.getElementById('sfTenantId').value;
-            let nomeTenant = '';
-
-            // Se for entrada e selecionou um cliente, salva o nome dele para ficar bonito no relatório
-            if (tipo === 'Entrada' && tenantIdSelecionado !== 'Avulso') {
-                const t = dbTenants.find(x => x.id === tenantIdSelecionado);
-                if (t) nomeTenant = t.nomeFantasia;
-            }
-
-            const payload = { 
-                tipo: tipo, 
-                tenantIdVinculado: tenantIdSelecionado !== 'Avulso' ? tenantIdSelecionado : null,
-                nomeTenant: nomeTenant,
-                desc: document.getElementById('sfDesc').value.trim(), 
-                valor: parseFloat(document.getElementById('sfValor').value), 
-                metodo: document.getElementById('sfMetodo').value,
-                data: document.getElementById('sfData').value, 
-                registradoEm: new Date().toISOString() 
-            };
-            
-            await db.collection('saas_financeiro').add(payload); 
-            showToast("Lançamento Contabilizado na Agência.", "success"); 
-            e.target.reset(); bootstrap.Modal.getInstance(document.getElementById('modalSaasFin')).hide();
-        }
-
-        async function deletarRegistroSaaS(id) { if(confirm("Apagar registro do seu caixa mestre?")) { await db.collection('saas_financeiro').doc(id).delete(); showToast("Removido.", "success"); } }
-
-        // ---------------- ENGENHARIA DE DADOS (INJEÇÃO JSON) ----------------
-        function popularSelectsTenants() {
-            const htmlSelect = '<option value="">Selecione a empresa destino...</option>' + dbTenants.map(t => `<option value="${t.id}">${t.nomeFantasia} (${(t.nicho||'').toUpperCase()})</option>`).join('');
-            document.getElementById('importTenantDestino').innerHTML = htmlSelect;
-            
-            // Popula também o select do financeiro
-            document.getElementById('sfTenantId').innerHTML = '<option value="Avulso">-- Receita Avulsa / Nenhuma Empresa --</option>' + dbTenants.map(t => `<option value="${t.id}">${t.nomeFantasia}</option>`).join('');
-        }
-
-        async function injetarDadosJSON() {
-            const tenantId = document.getElementById('importTenantDestino').value; const colecao = document.getElementById('importColecao').value; const jsonText = document.getElementById('importJsonPayload').value;
-            if(!tenantId || !jsonText) { showToast("Selecione o Cliente Destino e cole o JSON válido.", "error"); return; }
-            try {
-                const dados = JSON.parse(jsonText);
-                if(!Array.isArray(dados)) throw new Error("O formato do JSON deve ser uma lista [...]");
-                
-                const batch = db.batch();
-                dados.forEach(item => { item.tenantId = tenantId; item.importadoEm = new Date().toISOString(); batch.set(db.collection(colecao).doc(), item); });
-                await batch.commit(); showToast(`Dados injetados com sucesso! Banco atualizado: '${colecao}'.`, "success"); document.getElementById('importJsonPayload').value = '';
-            } catch(e) { showToast("Falha estrutural no JSON: " + e.message, "error"); }
-        }
-    </script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- App Script -->
+    <script src="app_superadmin.js"></script>
 </body>
 </html>
