@@ -106,11 +106,8 @@ window.JARVIS_CONST = {
       `🔔 *Lembrete de Revisão*\n\nOlá ${nome}! Seu *${veiculo}* está próximo da revisão programada${data ? ` para ${data}` : ''}${km ? ` (${km} km)` : ''}.\n\nAgende agora para manter seu veículo em dia!`
   },
 
-  // SUPERADMIN CREDENTIALS
-  SA_CREDENTIALS: [
-    { u: 'thiaguinho', p: 'master2026' },
-    { u: 'admin',      p: 'jarvis@2026' }
-  ]
+  // SUPERADMIN CREDENTIALS (OBSOLETE - USE FIREBASE AUTH)
+  SA_CREDENTIALS: []
 };
 
 // ============================================================
