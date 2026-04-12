@@ -6,6 +6,7 @@
 <title>J.A.R.V.I.S — SUPERADMIN SaaS</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@400;700&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -140,7 +141,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="login-box">
     <div class="login-title" style="color:var(--purple)">⚡ SUPERADMIN</div>
     <div class="login-sub">J.A.R.V.I.S SAAS MASTER</div>
-    <div class="form-group"><label class="j-label">Usuário Master</label><input class="j-input" id="lUser" placeholder="thiaguinho" autocomplete="off"></div>
+    <div class="form-group"><label class="j-label">Email de Acesso</label><input class="j-input" id="lUser" placeholder="seuemail@gmail.com" type="email" autocomplete="email"></div>
     <div class="form-group"><label class="j-label">Senha</label><input type="password" class="j-input" id="lPass" placeholder="••••••••"></div>
     <div id="loginErr" style="color:var(--danger);font-family:var(--fm);font-size:0.72rem;margin-bottom:12px;display:none;">⚠ Credenciais inválidas</div>
     <button class="btn-primary" style="width:100%;padding:12px;justify-content:center;" onclick="fazerLogin()">AUTENTICAR</button>
@@ -355,7 +356,8 @@ const FB={apiKey:"AIzaSyBqIuCsHHuy_f-mBWV4JBkbyOorXpqQvqg",authDomain:"hub-thiag
 if(!firebase.apps.length) firebase.initializeApp(FB);
 const db=firebase.firestore();
 
-const MASTER=[{u:'thiaguinho',p:'master2026'},{u:'admin',p:'jarvis@2026'}];
+const MASTER_EMAIL = 'thiagoventuravalencio@gmail.com';
+const MASTER_UID = 'H347zQ8bUccyjBeFzQQEJQdtDKy2';
 let allTenants=[], allSaasFin=[], allAudit=[];
 
 function toast(msg,type='ok'){const el=document.createElement('div');el.className=`toast-j ${type}`;el.innerHTML=msg;$('toastBox').appendChild(el);setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),400);},3500);}
@@ -367,19 +369,74 @@ const dtHrBr=iso=>iso?new Date(iso).toLocaleString('pt-BR'):'-';
 
 // AUTH
 $('lPass').addEventListener('keydown',e=>{if(e.key==='Enter')fazerLogin();});
-function fazerLogin(){
-  const u=$v('lUser'),p=$v('lPass');
-  if(MASTER.some(c=>c.u===u&&c.p===p)){
-    $('loginPage').style.display='none';
-    $('mainPanel').style.display='flex';
-    sessionStorage.setItem('sa_auth','1');
-    inicializar();
-  }else{
+async function fazerLogin(){
+  const email=$v('lUser'), pass=$v('lPass');
+  const btn = document.querySelector('.login-box .btn-primary');
+  const originalText = btn.innerText;
+  
+  if(!email || !pass) {
+    toast('⚠ Preencha email e senha','err');
+    return;
+  }
+
+  try {
+    btn.disabled = true;
+    btn.innerText = '⏳ AUTENTICANDO...';
+    
+    const res = await firebase.auth().signInWithEmailAndPassword(email, pass);
+    const user = res.user;
+
+    // Dupla verificação: email correto E uid correto
+    const emailOk = user.email === MASTER_EMAIL;
+    const uidOk   = user.uid   === MASTER_UID;
+    if(emailOk && uidOk) {
+      $('loginPage').style.display='none';
+      $('mainPanel').style.display='flex';
+      sessionStorage.setItem('sa_auth','1');
+      sessionStorage.setItem('sa_uid', user.uid);
+      inicializar();
+      toast('✓ ACESSO MASTER CONCEDIDO');
+    } else {
+      await firebase.auth().signOut();
+      // Log tentativa suspeita
+      try { firebase.firestore().collection('lixeira_auditoria').add({modulo:'SUPERADMIN',acao:'TENTATIVA DE ACESSO NEGADA — email:'+user.email,usuario:'SISTEMA',ts:new Date().toISOString()}); } catch(e){}
+      throw new Error('Acesso negado — usuário sem permissão de superadmin');
+    }
+  } catch(e) {
+    console.error(e);
+    // Fallback local para quando Firebase Auth está com problema
+    if(e.code === 'auth/network-request-failed' || e.code === 'auth/too-many-requests') {
+      const FALLBACK = [{u:'thiaguinho',p:'master2026'},{u:'admin',p:'jarvis@2026'}];
+      const email_typed = $v('lUser'), pass_typed = $v('lPass');
+      if(FALLBACK.some(c => c.u === email_typed && c.p === pass_typed)) {
+        $('loginPage').style.display='none';
+        $('mainPanel').style.display='flex';
+        sessionStorage.setItem('sa_auth','1');
+        inicializar();
+        toast('✓ ACESSO VIA CREDENCIAL LOCAL');
+        btn.disabled=false; btn.innerText=originalText; return;
+      }
+    }
+    const codigosAmigaveis = {
+      'auth/wrong-password':   'Senha incorreta.',
+      'auth/user-not-found':   'Email não cadastrado no Firebase.',
+      'auth/invalid-email':    'Email inválido.',
+      'auth/too-many-requests':'Muitas tentativas. Tente em alguns minutos.',
+      'auth/network-request-failed': 'Sem conexão com o servidor.'
+    };
+    $('loginErr').innerText = '⚠ ' + (codigosAmigaveis[e.code] || e.message);
     $('loginErr').style.display='block';
-    setTimeout(()=>$('loginErr').style.display='none',3000);
+    setTimeout(()=>$('loginErr').style.display='none',5000);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
   }
 }
-function sair(){sessionStorage.removeItem('sa_auth');location.reload();}
+async function sair(){
+  try { await firebase.auth().signOut(); } catch(e) {}
+  sessionStorage.removeItem('sa_auth');
+  location.reload();
+}
 
 // NAVEGAÇÃO
 function ir(id,el){
